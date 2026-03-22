@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "outDir": "./out",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@dexpert/types": ["../../packages/types/src"],
+      "@dexpert/ui": ["../../packages/ui/src"]
+    }
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "electron/**/*.ts"],
+  "exclude": ["node_modules", "out", "dist"]
+}

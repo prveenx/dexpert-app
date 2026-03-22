@@ -1,0 +1,35 @@
+# Dexpert Engine Default Settings
+# This file is loaded at startup and can be modified via the API.
+
+port: 48765
+host: "127.0.0.1"
+log_level: "info"
+
+default_model:
+  provider: "google"
+  model: "gemini-2.0-flash"
+  temperature: 0.7
+  max_tokens: 4096
+
+agents:
+  planner:
+    enabled: true
+    model: "gemini-2.0-flash"
+    temperature: 0.7
+    max_tokens: 4096
+    timeout: 120
+    max_retries: 3
+  browser:
+    enabled: true
+    model: "gemini-2.0-flash"
+    temperature: 0.5
+    max_tokens: 4096
+    timeout: 90
+    max_retries: 3
+  os:
+    enabled: true
+    model: "gemini-2.0-flash"
+    temperature: 0.3
+    max_tokens: 4096
+    timeout: 60
+    max_retries: 3

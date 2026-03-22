@@ -1,0 +1,3 @@
+hashbrown::raw::RawTable<(i32, Accessibility::IUIAutomationElement)>
+hashbrown::map::HashMap<i32, Accessibility::IUIAutomationElement, RandomState>
+std::sync::Mutex<HashMap<i32, Accessibility::IUIAutomationElement>>

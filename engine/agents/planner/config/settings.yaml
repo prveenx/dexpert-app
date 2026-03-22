@@ -1,0 +1,21 @@
+# =============================================================================
+# PLANNER AGENT CONFIGURATION
+# =============================================================================
+core:
+  agent_id: "planner_v1"
+  version: "1.0.0"
+  description: "The central orchestrator responsible for intent classification and routing."
+
+model:
+  # The Planner needs high reasoning capabilities.
+  # Recommended: gpt-4o, gemini-1.5-pro, or claude-3-5-sonnet
+  provider: "gemini" 
+  model_name: "groq/openai/gpt-oss-120b" 
+  temperature: 0.0 # Strict adherence to JSON schema
+  max_tokens: 12192
+
+execution:
+  # If true, the planner logs its internal thought process to the TUI before deciding
+  show_thoughts: true
+  # Fallback agent if intent is ambiguous (usually Browser for info retrieval)
+  default_routing: "browser"

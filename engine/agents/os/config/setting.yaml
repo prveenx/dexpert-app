@@ -1,0 +1,43 @@
+core:
+  agent_id: "os_specialist_v1"
+  description: "Specialist for filesystem operations, process management, and automation."
+
+model:
+  provider: "gemini"
+  model_name: "gemini/gemini-2.5-flash"
+  vision_model: "gemini/gemini-2.5-flash"
+  temperature: 0.0
+  max_tokens: 16384
+
+vision:
+  provider: "gemini"
+  model_name: "gemini/gemini-2.5-flash"
+  temperature: 0.0
+  max_tokens: 2048
+
+execution:
+  # Scripting Engine Configuration
+  scripting:
+    default_timeout: 3.0       # If script finishes in 3s, return immediately
+    max_output_chars: 10000    # Truncate stdout to protect LLM context
+    step_delay: 0.5            # Faster reactivity (was 3.0)
+    max_steps: 30              # Maximum ReAct steps per task
+    working_dir: "./PCAGENT_WORKSPACE"
+    allowed_languages: ["python", "powershell", "bash", "cmd"]
+    
+    # Context Injection (Clean JSON, no messy python object injection)
+    inject_context: true
+    context_env_var: "PCAGENT_CONTEXT_PATH"
+
+bridge:
+  # Path to the compiled Rust bridge binary
+  bridge_binary: ".//os/perception/rust_layer/target/release/pcagent_bridge"
+  timeout: 5
+
+skills:
+  safe_mode: false # If true, blocks deletion/shell execution without confirmation
+  allowed_paths: 
+    - "Desktop"
+    - "Documents"
+    - "Downloads"
+    - "PCAGENT_WORKSPACE"

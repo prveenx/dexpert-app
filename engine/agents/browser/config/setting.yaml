@@ -1,0 +1,79 @@
+# =============================================================================
+# BROWSER AGENT CONFIGURATION (MAF)
+# =============================================================================
+# Governs the physical layer of the Browser Agent:
+# Launch parameters, timeouts, visual processing, captcha, and debugging.
+# =============================================================================
+
+core:
+  agent_id: "browser_specialist_v1"
+  version: "1.0.0"
+  description: "Specialized agent for web navigation, DOM interaction, and data extraction."
+
+# --- BROWSER ENGINE (Playwright/Chrome) ---
+engine:
+  browser_type: "chromium"
+  headless: false
+  channel: "chrome"
+  mode: "launch"
+  cdp_url: "http://localhost:9222"
+  user_data_dir: "./.pcagent_browser_profile"
+  profile_name: "Default"
+  window_size:
+    width: 1266
+    height: 668
+  homepage: "https://www.google.com" # Default page on launch
+  keep_alive: true           # If true, browser won't close on task completion
+  args:
+    - "--disable-blink-features=AutomationControlled"
+    - "--no-first-run"
+    - "--disable-infobars"
+    - "--disable-background-timer-throttling"
+    - "--disable-popup-blocking"
+    - "--disable-notifications"
+    - "--enable-features=NetworkService,NetworkServiceInProcess"
+
+# --- EXECUTION CONTROLLER ---
+controller:
+  action_delay: 2
+  navigation_timeout: 30
+  element_timeout: 5
+  max_retries_per_action: 3
+  interaction_mode: "strict"
+  highlight_elements: true
+  allowed_domains: []
+  blocked_resource_types:
+    - "font"
+    - "media"
+
+# --- PERCEPTION (DOM & Vision) ---
+perception:
+  strategy: "accessibility"
+  use_shadow_dom: true
+  generate_ax_ids: true
+  visual_mode: false        # Off by default for cost efficiency
+  screenshot_quality: 80
+  vision_model: "gemini/gemini-2.0-flash"  # LiteLLM model string for analyze_visual tool
+  model_name: "gemini/gemini-2.0-flash"   # Primary reasoning model for DOM interaction
+
+# --- CAPTCHA ---
+captcha:
+  enabled: true
+  auto_solve: true
+  provider: "vision_llm"
+  crop_padding:
+    width: 20
+    height: 20
+  crop_width: 300           # Max crop width in pixels
+  crop_height: 100          # Max crop height in pixels
+  max_attempts: 3
+
+# --- DEBUGGING & TRACING ---
+debug:
+  enabled: true
+  log_level: "INFO"
+  save_traces: true
+  trace_dir: ".//browser/traces"
+  save_screenshots_on_fail: true
+  screenshot_dir: ".//browser/screenshots"
+  log_network_traffic: false

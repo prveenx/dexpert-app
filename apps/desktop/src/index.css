@@ -1,0 +1,106 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-background: 255 255 255;
+    --color-foreground: 10 10 10;
+  }
+
+  .dark {
+    --color-background: 9 9 11;
+    --color-foreground: 250 250 250;
+  }
+
+  * {
+    @apply border-zinc-200 dark:border-zinc-800;
+  }
+
+  body {
+    @apply bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Custom scrollbar */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-zinc-300 dark:bg-zinc-800 rounded-full;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    @apply bg-zinc-400 dark:bg-zinc-700;
+  }
+}
+
+@layer components {
+  /* Draggable titlebar region */
+  .titlebar-drag {
+    -webkit-app-region: drag;
+  }
+
+  .titlebar-no-drag {
+    -webkit-app-region: no-drag;
+  }
+
+  /* Premium Markdown base styles */
+  .markdown-body {
+    @apply text-zinc-800 dark:text-zinc-200 leading-relaxed;
+  }
+
+  .markdown-body code:not(pre code) {
+    @apply bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded text-sm font-mono text-violet-600 dark:text-violet-400;
+  }
+
+  .markdown-body pre {
+    @apply my-4 p-4 rounded-xl bg-zinc-900 text-zinc-100 overflow-x-auto font-mono text-sm;
+  }
+
+  /* Agent Pulse Dot */
+  .animate-pulse-dot {
+    animation: pulse-dot 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes slide-in-from-bottom {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .fade-in {
+    animation: fade-in 0.3s ease-out;
+  }
+
+  .slide-in-from-bottom {
+    animation: slide-in-from-bottom 0.4s cubic-bezier(0, 0, 0.2, 1);
+  }
+}
+
+@layer utilities {
+  .glass {
+    @apply bg-white/70 dark:bg-zinc-900/70 backdrop-blur-md border border-zinc-200/50 dark:border-zinc-800/50;
+  }
+  
+  .glass-dark {
+    @apply bg-zinc-950/80 backdrop-blur-lg border border-white/5;
+  }
+}

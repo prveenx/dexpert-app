@@ -1,0 +1,4 @@
+hashbrown::raw::RawTable<(std::string::String, Accessibility::IUIAutomationElement)>
+hashbrown::map::HashMap<std::string::String, Accessibility::IUIAutomationElement, RandomState>
+HashMap<std::string::String, Accessibility::IUIAutomationElement>
+std::sync::Mutex<HashMap<std::string::String, Accessibility::IUIAutomationElement>>

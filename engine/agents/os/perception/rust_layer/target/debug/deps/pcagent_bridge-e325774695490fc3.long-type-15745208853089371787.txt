@@ -1,0 +1,1 @@
+Result<ExpandCollapseState, windows_core::error::Error>

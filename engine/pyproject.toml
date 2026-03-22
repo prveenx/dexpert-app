@@ -1,0 +1,45 @@
+[project]
+name = "dexpert-engine"
+version = "0.1.0"
+description = "Dexpert AI Multi-Agent Engine"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "websockets>=13.0",
+    "pydantic>=2.10.0",
+    "pydantic-settings>=2.6.0",
+    "pyyaml>=6.0.0",
+    "litellm>=1.50.0",
+    "aiosqlite>=0.20.0",
+    "httpx>=0.28.0",
+    "pillow>=11.0.0",
+    "watchdog>=6.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+    "ruff>=0.8.0",
+]
+browser = [
+    "playwright>=1.49.0",
+]
+os-agent = [
+    "pyautogui>=0.9.54",
+]
+
+[project.scripts]
+dexpert-engine = "main:main"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
