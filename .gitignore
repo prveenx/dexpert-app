@@ -32,7 +32,6 @@ venv/
 engine/runtime/
 
 # Rust
-native/dexpert-core/target/
 engine/agents/os/perception/native/target/
 engine/agents/os/perception/rust_layer/target/
 
