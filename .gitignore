@@ -16,7 +16,6 @@ out/
 .env
 .env.local
 .env.*.local
-watcher.py
 Dexpert.txt
 
 # Python
