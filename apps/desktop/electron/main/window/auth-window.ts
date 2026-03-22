@@ -4,19 +4,24 @@ import { is } from '@electron-toolkit/utils';
 
 export function createAuthWindow(): BrowserWindow {
   const authWindow = new BrowserWindow({
-    width: 800,
-    height: 560,
+    width: 1200,
+    height: 800,
     frame: false,
-    resizable: false,
+    resizable: true,
     center: true,
     show: false,
+    autoHideMenuBar: true,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: true,
       contextIsolation: true,
       nodeIntegration: false,
+      devTools: true,
     },
   });
+
+  // Enable full screen / maximized if needed
+  authWindow.maximize();
 
   authWindow.on('ready-to-show', () => {
     authWindow.show();

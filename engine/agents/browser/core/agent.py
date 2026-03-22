@@ -27,12 +27,12 @@ import asyncio
 import json
 from typing import Dict, Any, List, Optional, Tuple
 
-from core.base_agent import BaseAgent
+from agents.base import BaseAgent
 from core.protocol import (
     Message, AgentType, MessageType, AgentStatus, TaskFrame, ResultFrame, QuestionFrame
 )
 from core.scratchpad import Scratchpad, WorkflowPhase, TaskComplexity
-from core.context_manager import ContextManager
+from core.context.episodic import EpisodicContext as ContextManager
 from llm.client import LLMClient
 from llm.parser import ActionParser
 from utils.exeception import FatalToolError, RetryableToolError

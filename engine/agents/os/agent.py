@@ -7,9 +7,9 @@ import asyncio
 import time
 from typing import Dict, Any, List
 
-from core.base_agent import BaseAgent
+from agents.base import BaseAgent
 from core.protocol import Message, AgentType, MessageType, TaskFrame, ResultFrame, QuestionFrame, AgentStatus
-from core.context_manager import ContextManager
+from core.context.episodic import EpisodicContext as ContextManager
 from llm.client import LLMClient
 from llm.parser import ActionParser
 

@@ -13,13 +13,16 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev --parallel",
+    "dev:tui": "python scripts/tui_dev.py",
     "dev:desktop": "turbo run dev --filter=@dexpert/desktop",
     "dev:web": "turbo run dev --filter=@dexpert/web",
     "dev:engine": "cd engine && python main.py",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "clean": "turbo run clean && rimraf node_modules",
-    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\""
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "db:push": "pnpm --filter @dexpert/db db:push",
+    "db:seed": "pnpm --filter @dexpert/db db:seed"
   },
   "devDependencies": {
     "prettier": "^3.4.2",

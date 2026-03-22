@@ -35,8 +35,9 @@ def _get_planner() -> PlannerAgent:
     """Lazy-init the Planner agent."""
     global _planner
     if _planner is None:
-        settings = DexpertSettings()
-        _planner = PlannerAgent(config=settings.planner, globals=settings)
+        from memory.state_manager import StateManager
+        manager = StateManager(session_id="global")
+        _planner = PlannerAgent(state_manager=manager)
     return _planner
 
 

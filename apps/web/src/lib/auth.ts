@@ -19,7 +19,7 @@ export const auth = betterAuth({
   },
   emailVerification: {
     sendOnSignUp: true,
-    sendVerificationEmail({ user, url, token }: { user: any, url: any, token: any }, request: any) {
+    async sendVerificationEmail({ user, url, token }: { user: any, url: any, token: any }, request: any) {
       if (process.env.RESEND_API_KEY) {
         await fetch("https://api.resend.com/emails", {
           method: "POST",

@@ -5,14 +5,17 @@ import uuid
 import asyncio
 from typing import Dict, Any, List, Optional
 
-from core.base_agent import BaseAgent
+from agents.base import BaseAgent
 from core.protocol import Message, AgentType, MessageType, TaskFrame, ResultFrame
 from llm.client import LLMClient
 from memory.state_manager import StateManager
 from memory.personalization import PersonalizationEngine
 
-from .Planner.config.config import PlannerSettings, PlannerPrompts
-from .Planner.models import PlannerDecision
+# from .Planner.config.config import PlannerSettings, PlannerPrompts
+# from .Planner.models import PlannerDecision
+# Re-orienting to standardized agent structure
+from .config.config import PlannerSettings, PlannerPrompts
+from .models import PlannerDecision
 from config.config import resolve_model
 
 log = logging.getLogger(__name__)

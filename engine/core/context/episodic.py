@@ -15,6 +15,19 @@ from core.context.hud import HUDGenerator
 
 log = logging.getLogger(__name__)
 
+def estimate_tokens(text: Any) -> int:
+    return len(str(text)) // 4
+
+def compress_message(msg: Dict[str, Any]) -> str:
+    """Ultra-compact summary for archive."""
+    role = msg.get("role", "user")
+    content = str(msg.get("content", ""))
+    if "action" in content.lower(): return f"ACT: {content[:50]}..."
+    if "done" in content.lower(): return f"DONE: {content[:50]}..."
+    return f"{role[:3].upper()}: {content[:30]}..."
+
+ARCHIVE_ZONE_MAX_PCT = 0.3
+
 class EpisodicContext:
     def __init__(self, max_tokens: int = 100_000, recent_window: int = 10):
         self.max_tokens = max_tokens
@@ -22,39 +35,46 @@ class EpisodicContext:
         
         self.strategy_cache = StrategyCache()
         
-        # The volatile action history (Wiped every episode)
-        self._action_history: List[Dict[str, Any]] =[]
+        # Volatile action history (cleared every episode/item)
+        self._raw_history: List[Dict[str, Any]] = []
+        self._archive_summary: str = ""
+        self._archive_message_count: int = 0
+        self._total_raw_tokens: int = 0
 
-    def add_message(self, role: str, content: str) -> None:
+    def add(self, role: str, content: str) -> None:
         """Adds a turn to the current episode."""
-        self._action_history.append({"role": role, "content": content})
+        # Simple token estimation
+        tokens = len(content) // 4
+        self._raw_history.append({"role": role, "content": content, "_tokens": tokens})
+        self._total_raw_tokens += tokens
         
-        # Micro-compression: If the episode itself is getting too long, 
-        # pop the oldest actions to keep scaling perfectly flat.
-        if len(self._action_history) > self.recent_window * 2:
-            self._action_history = self._action_history[-self.recent_window:]
+        # Micro-compression if window exceeded
+        if len(self._raw_history) > self.recent_window * 3:
+            self._maybe_compress()
 
     def end_episode(self) -> None:
         """
         THE CLEAN SLATE PROTOCOL.
-        Called when an item is Committed or Skipped.
+        Distills strategy and flushes action history.
         """
         log.info("Ending Episode: Distilling strategy and flushing Action History...")
         
         # 1. Distill procedural memory from this episode
-        self.strategy_cache.extract_from_episode(self._action_history)
+        self.strategy_cache.extract_from_episode(self._raw_history)
         
-        # 2. Nuke the action history. Clicks, DOM trees, and thoughts are erased.
-        self._action_history =[]
+        # 2. Nuke the action history
+        self._raw_history = []
+        self._total_raw_tokens = 0
         
         log.info("Action History flushed. Ready for next episode.")
 
     def get_context_window(
         self,
         system_prompt: str,
-        tool_schemas: str,
-        tracker: WorkflowTracker,
-        current_observation: str
+        current_observation: str,
+        tool_schemas: str = "",
+        tracker: Optional[WorkflowTracker] = None,
+        scratchpad_status: str = ""
     ) -> List[Dict[str, Any]]:
         """
         Assembles the perfectly scaled, cache-friendly LLM prompt.
