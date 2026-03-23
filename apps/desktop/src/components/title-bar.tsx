@@ -23,33 +23,7 @@ export function TitleBar() {
       </div>
 
       <div className="titlebar-no-drag flex items-center gap-1">
-        <button
-          onClick={() => window.dexpert?.window?.minimize()}
-          className="flex h-7 w-7 items-center justify-center rounded hover:bg-gray-800"
-          aria-label="Minimize"
-        >
-          <svg width="10" height="1" viewBox="0 0 10 1" fill="currentColor" className="text-gray-400">
-            <rect width="10" height="1" />
-          </svg>
-        </button>
-        <button
-          onClick={() => window.dexpert?.window?.maximize()}
-          className="flex h-7 w-7 items-center justify-center rounded hover:bg-gray-800"
-          aria-label="Maximize"
-        >
-          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1" className="text-gray-400">
-            <rect x="0.5" y="0.5" width="9" height="9" />
-          </svg>
-        </button>
-        <button
-          onClick={() => window.dexpert?.window?.close()}
-          className="flex h-7 w-7 items-center justify-center rounded hover:bg-red-600"
-          aria-label="Close"
-        >
-          <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" className="text-gray-400">
-            <path d="M1 1L9 9M9 1L1 9" stroke="currentColor" strokeWidth="1.2" />
-          </svg>
-        </button>
+        {/* Native window buttons are handled by Electron titleBarOverlay/traffic lights */}
       </div>
     </div>
   );

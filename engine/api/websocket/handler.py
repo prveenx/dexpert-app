@@ -8,6 +8,7 @@ Uses the EngineEvent protocol for all UI updates.
 
 import json
 import logging
+import asyncio
 import jwt
 from typing import Optional
 
@@ -86,7 +87,9 @@ async def websocket_endpoint(websocket: WebSocket):
             data = await websocket.receive_text()
             try:
                 message = json.loads(data)
-                await handle_message(websocket, message)
+                # Run message handling in background task so we don't block receiving
+                # especially for 'cancel' messages
+                asyncio.create_task(handle_message(websocket, message))
             except json.JSONDecodeError:
                 await websocket.send_json(
                     ErrorEvent(
@@ -105,6 +108,7 @@ async def websocket_endpoint(websocket: WebSocket):
 async def handle_message(websocket: WebSocket, message: dict):
     """Route incoming messages via their 'type' field."""
     msg_type = message.get("type")
+    log.info(f"Received WebSocket message: type={msg_type}")
 
     if msg_type == "ping":
         await websocket.send_json(
@@ -112,6 +116,7 @@ async def handle_message(websocket: WebSocket, message: dict):
         )
 
     elif msg_type == "chat":
+        log.info(f"Routing to handle_chat: {len(str(message.get('content', '')))} chars")
         await handle_chat(websocket, message)
 
     elif msg_type == "task":
@@ -123,16 +128,59 @@ async def handle_message(websocket: WebSocket, message: dict):
         else:
             await handle_chat(websocket, message)
 
+    elif msg_type == "get_sessions":
+        from core.session.manager import SessionManager
+        sm = SessionManager()
+        user_id = message.get("userId", "default")
+        sessions = await sm.list_all(user_id)
+        await websocket.send_json({
+            "type": "sync_sessions",
+            "sessions": sessions
+        })
+
+    elif msg_type == "get_messages":
+        from core.session.manager import SessionManager
+        sm = SessionManager()
+        session_id = message.get("sessionId")
+        if session_id:
+            session = await sm.get(session_id)
+            messages = session.get("messages", []) if session else []
+            await websocket.send_json({
+                "type": "sync_messages",
+                "sessionId": session_id,
+                "messages": messages
+            })
+            
+    elif msg_type == "delete_session":
+        from core.session.manager import SessionManager
+        sm = SessionManager()
+        session_id = message.get("sessionId")
+        if session_id:
+            await sm.delete(session_id)
+            await websocket.send_json({
+                "type": "session_deleted",
+                "sessionId": session_id
+            })
+
     elif msg_type == "cancel":
+
+        session_id = message.get("sessionId")
         task_id = message.get("taskId")
-        log.info(f"Cancel requested for task: {task_id}")
-        await websocket.send_json(
-            DoneEvent(
-                sessionId=message.get("sessionId", "default"),
-                taskId=task_id,
-                success=False,
-            ).model_dump()
-        )
+        key = task_id or session_id or "default"
+        
+        log.info(f"Cancel requested for key: {key}")
+        cancelled = await ws_manager.cancel_task(websocket, key)
+        
+        if cancelled:
+            await websocket.send_json(
+                DoneEvent(
+                    sessionId=session_id,
+                    taskId=task_id,
+                    success=False,
+                ).model_dump()
+            )
+        else:
+            log.warning(f"No active task found to cancel for key: {key}")
 
     else:
         await websocket.send_json(
@@ -145,9 +193,31 @@ async def handle_message(websocket: WebSocket, message: dict):
 
 async def handle_chat(websocket: WebSocket, message: dict):
     """
-    Handle a chat message — stream full EngineEvent protocol.
-    Routes through the Planner agent for conversational AI.
+    Handle a chat message — executes in a managed background task.
     """
+    session_id = message.get("sessionId", "default")
+    
+    # Define the actual work
+    async def chat_task():
+        try:
+            await _run_chat_stream(websocket, message)
+        except asyncio.CancelledError:
+            log.info(f"Chat task cancelled for session: {session_id}")
+            # Ensure client knows it's done (already cancelled)
+            try:
+                await websocket.send_json(
+                    DoneEvent(sessionId=session_id, success=False).model_dump()
+                )
+            except: pass
+        finally:
+            ws_manager.unregister_task(websocket, session_id)
+
+    task = asyncio.create_task(chat_task())
+    ws_manager.register_task(websocket, session_id, task)
+
+
+async def _run_chat_stream(websocket: WebSocket, message: dict):
+    """Internal helper to stream the chat logic."""
     session_id = message.get("sessionId", "default")
     content = message.get("content") or message.get("payload", {}).get("goal", "")
     model = message.get("model")
@@ -214,9 +284,31 @@ async def handle_chat(websocket: WebSocket, message: dict):
 
 async def handle_agent_task(websocket: WebSocket, message: dict, agent_factory):
     """
-    Handle a task message — routes to a specific specialist agent.
-    Wraps the agent's process() method with event streaming.
+    Handle a task message — executes in a managed background task.
     """
+    task_id = message.get("taskId", "default")
+    session_id = message.get("sessionId", "default")
+    key = task_id or session_id
+
+    async def run_task():
+        try:
+            await _run_agent_task_logic(websocket, message, agent_factory)
+        except asyncio.CancelledError:
+            log.info(f"Agent task cancelled: {key}")
+            try:
+                await websocket.send_json(
+                    DoneEvent(sessionId=session_id, taskId=task_id, success=False).model_dump()
+                )
+            except: pass
+        finally:
+            ws_manager.unregister_task(websocket, key)
+
+    task = asyncio.create_task(run_task())
+    ws_manager.register_task(websocket, key, task)
+
+
+async def _run_agent_task_logic(websocket: WebSocket, message: dict, agent_factory):
+    """Internal helper to stream the agent task logic."""
     session_id = message.get("sessionId", "default")
     goal = message.get("content") or message.get("payload", {}).get("goal", "")
     task_id = message.get("taskId", "")

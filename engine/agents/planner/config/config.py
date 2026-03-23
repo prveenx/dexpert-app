@@ -13,7 +13,7 @@ log = logging.getLogger(__name__)
 
 class ModelConfig(BaseModel):
     provider: str = "google"
-    model_name: str = "gemini-2.0-flash"
+    model_name: str = "gemini-3.1-flash-lite-preview"
     temperature: float = 0.7
     max_tokens: int = 4096
 

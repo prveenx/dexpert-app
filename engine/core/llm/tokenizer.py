@@ -20,7 +20,7 @@ TOKEN_LOG_PATH = os.path.join(RUNTIME_DIR, "logs", "token_tracker.jsonl")
 
 # Approximate cost per 1M tokens (input/output) for common models
 MODEL_COSTS: Dict[str, Dict[str, float]] = {
-    "gemini-2.0-flash": {"input": 0.075, "output": 0.30},
+    "gemini-3.1-flash-lite-preview": {"input": 0.075, "output": 0.30},
     "gemini-2.5-flash-preview-05-20": {"input": 0.15, "output": 0.60},
     "gemini-2.5-pro-preview-05-06": {"input": 1.25, "output": 10.00},
     "gpt-4o": {"input": 2.50, "output": 10.00},

@@ -11,6 +11,7 @@ import { useSendTask } from '../../hooks/use-send-task';
 import { MessageList, TypingIndicator } from './components';
 import { ChatInput } from './chat-input';
 import { Bot, Sparkles, ArrowRight } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 
 // ── Empty State ───────────────────────────────────────
 
@@ -90,9 +91,17 @@ const ChatHeader: React.FC = () => {
 // ── Main Chat View ────────────────────────────────────
 
 export const ChatView: React.FC = () => {
-  const messages = useSessionStore((s) => s.messages);
+  const currentSessionId = useSessionStore((s) => s.currentSessionId);
+  const allMessages = useSessionStore((s) => s.messages);
+  
+  const messages = React.useMemo(
+    () => allMessages.filter(m => m.sessionId === currentSessionId),
+    [allMessages, currentSessionId]
+  );
+
   const { sendTask } = useSendTask();
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const handleSend = useCallback(
     (content: string) => {
@@ -102,24 +111,69 @@ export const ChatView: React.FC = () => {
   );
 
   const hasMessages = messages.length > 0;
+  const plannerStatus = useAgentsStore((s) => s.agentStatuses.planner);
+  const isTyping = (plannerStatus === 'running') && 
+                   (messages.length === 0 || messages[messages.length - 1].role === 'user');
+
+  // Autoscroll to bottom
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages, isTyping]);
+
+  const handleStop = useCallback(() => {
+    if (window.dexpert?.engine?.send && currentSessionId) {
+      (window.dexpert.engine.send as any)({
+        type: 'cancel',
+        sessionId: currentSessionId,
+      });
+    }
+  }, [currentSessionId]);
 
   return (
-    <div className="flex flex-col h-full bg-zinc-950">
-      <ChatHeader />
+    <div className="flex h-full flex-col bg-white dark:bg-zinc-950 relative overflow-hidden">
+      {/* Search Header */}
+      <div className="flex-shrink-0 z-50">
+        <ChatHeader />
+      </div>
 
-      {hasMessages ? (
-        <MessageList
-          messages={messages}
-          streamingMessageId={streamingMessageId}
-        />
-      ) : (
-        <EmptyState onSuggestion={handleSend} />
-      )}
+      <div className="flex-1 overflow-hidden relative flex flex-col">
+        {hasMessages ? (
+          <div 
+            ref={scrollRef}
+            className="flex-1 overflow-y-auto custom-scrollbar scroll-smooth px-4 sm:px-8 lg:px-16 pt-8"
+          >
+            <div className="max-w-3xl mx-auto">
+              <MessageList
+                messages={messages}
+                streamingMessageId={streamingMessageId}
+              />
+              {isTyping && (
+                <div className="mt-6">
+                  <TypingIndicator />
+                </div>
+              )}
+            </div>
+            {/* Safe area at bottom of scrollable content */}
+            <div className="h-24" />
+          </div>
+        ) : (
+          <EmptyState onSuggestion={handleSend} />
+        )}
+      </div>
 
-      {/* Input Bar — always at bottom */}
-      <div className="border-t border-zinc-800/50 bg-zinc-950/80 backdrop-blur-sm px-4 sm:px-8 lg:px-16 py-4">
-        <div className="max-w-3xl mx-auto">
-          <ChatInput onSend={handleSend} />
+      {/* Input Bar — Stunning blurred gradient transition */}
+      <div className="flex-shrink-0 relative z-40 px-4 sm:px-8 lg:px-16 pt-16 pb-2">
+        {/* The glassmorphic fog effect */}
+        <div className="absolute inset-0 bg-gradient-to-t from-white via-white/95 to-transparent dark:from-zinc-950 dark:via-zinc-950/95 dark:to-transparent backdrop-blur-xl pointer-events-none" />
+        
+        <div className="max-w-3xl mx-auto relative z-10">
+          <ChatInput 
+            onSend={handleSend} 
+            onStop={handleStop}
+            isWorking={plannerStatus === 'running'}
+          />
         </div>
       </div>
     </div>

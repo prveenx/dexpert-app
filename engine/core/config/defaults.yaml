@@ -7,28 +7,28 @@ log_level: "info"
 
 default_model:
   provider: "google"
-  model: "gemini-2.0-flash"
+  model: "gemini-3.1-flash-lite-preview"
   temperature: 0.7
   max_tokens: 4096
 
 agents:
   planner:
     enabled: true
-    model: "gemini-2.0-flash"
+    model: "gemini-3.1-flash-lite-preview"
     temperature: 0.7
     max_tokens: 4096
     timeout: 120
     max_retries: 3
   browser:
     enabled: true
-    model: "gemini-2.0-flash"
+    model: "gemini-3.1-flash-lite-preview"
     temperature: 0.5
     max_tokens: 4096
     timeout: 90
     max_retries: 3
   os:
     enabled: true
-    model: "gemini-2.0-flash"
+    model: "gemini-3.1-flash-lite-preview"
     temperature: 0.3
     max_tokens: 4096
     timeout: 60

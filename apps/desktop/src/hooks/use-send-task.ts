@@ -7,10 +7,18 @@ import type { ClientMessage } from '@dexpert/types';
 export function useSendTask() {
   const addMessage = useSessionStore((s) => s.addMessage);
   const currentSessionId = useSessionStore((s) => s.currentSessionId);
+  const createSession = useSessionStore((s) => s.createSession);
 
   const sendTask = useCallback(
     (content: string) => {
-      const sessionId = currentSessionId || crypto.randomUUID();
+      let sessionId = currentSessionId;
+      
+      // If no active session, create a new one
+      if (!sessionId) {
+        sessionId = crypto.randomUUID();
+        const title = content.length > 30 ? content.substring(0, 30) + '...' : content;
+        createSession(sessionId, title);
+      }
 
       // Optimistic user message
       addMessage({
@@ -32,7 +40,7 @@ export function useSendTask() {
         window.dexpert.engine.send(msg);
       }
     },
-    [addMessage, currentSessionId],
+    [addMessage, currentSessionId, createSession],
   );
 
   return { sendTask };

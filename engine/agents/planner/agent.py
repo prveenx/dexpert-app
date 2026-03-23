@@ -14,7 +14,9 @@ from typing import Dict, Any, List, Optional, AsyncGenerator
 
 from agents.base import BaseAgent
 from core.protocol.messages import (
-    Message, AgentType, MessageType, TaskFrame, ResultFrame,
+    Message, AgentType, MessageType,
+    TaskFrame, ResultFrame, QuestionFrame,
+    AgentStatus
 )
 from core.protocol.events import (
     ThinkingEvent, ResponseEvent, AgentStatusEvent,
@@ -105,6 +107,7 @@ class PlannerAgent(BaseAgent):
 
         # Fetch split omni-context (static + dynamic)
         try:
+            # INTEGRATION: Using personalization engine for superior context depth
             omni = await self.personalization.get_omni_context(
                 current_task=content_str,
             )
@@ -132,12 +135,7 @@ class PlannerAgent(BaseAgent):
 
         # Parse the decision JSON
         try:
-            clean_json = response_text.strip()
-            if clean_json.startswith("```json"):
-                clean_json = clean_json[7:]
-            if clean_json.endswith("```"):
-                clean_json = clean_json[:-3]
-            clean_json = clean_json.strip()
+            clean_json = self._extract_json(response_text)
             decision = PlannerDecision(**json.loads(clean_json))
         except Exception as e:
             log.warning(f"Decision parse failed, treating as chat: {e}")
@@ -218,13 +216,16 @@ class PlannerAgent(BaseAgent):
 
         try:
             # 1. Decision Hub - Run the full decision pipeline
-            # We wrap the CHAT message in a PCAgent-style Message
             user_content = messages[-1].get("content", "") if messages else ""
+            
+            # Persist incoming user message
+            await self.state_manager.add_interaction("user", user_content)
+
             msg = Message.create(
                 sender=AgentType.USER,
                 receiver=AgentType.PLANNER,
                 msg_type=MessageType.CHAT,
-                content=user_content,
+                content=user_content
             )
 
             # 2. Get Decision
@@ -236,10 +237,8 @@ class PlannerAgent(BaseAgent):
                 # Direct response
                 response_text = str(result.content)
                 
-                # If the planner replied in one go, stream it as chunks for UX
-                # Or if we want real streaming, we'd need to modify process()
-                # For now, we stream the result.content string
-                chunk_size = 20
+                # Stream it out in chunks for "real-time" feel if it was a single LLM call
+                chunk_size = 30
                 for i in range(0, len(response_text), chunk_size):
                     chunk = response_text[i:i + chunk_size]
                     yield self.emit_response(
@@ -247,9 +246,10 @@ class PlannerAgent(BaseAgent):
                         is_streaming=True,
                         session_id=session_id,
                     )
+                    await asyncio.sleep(0.01) # Smoothness
                 
                 yield self.emit_response(
-                    content=response_text,
+                    content=str(result.content),
                     is_streaming=False,
                     session_id=session_id,
                 )
@@ -276,7 +276,6 @@ class PlannerAgent(BaseAgent):
                 
                 if agent:
                     # Pipe events from the sub-agent back to our stream
-                    # We need to capture events and yield them
                     event_queue = asyncio.Queue()
                     
                     async def event_handler(event_type: str, content: str):
@@ -303,7 +302,19 @@ class PlannerAgent(BaseAgent):
                             continue
 
                     agent_result = await task
-                    final_content = str(agent_result.content)
+                    content_to_show = agent_result.content
+                    
+                    # Foolproof extraction of human content from frames/objects
+                    if hasattr(content_to_show, "summary"):
+                        content_to_show = content_to_show.summary
+                    elif hasattr(content_to_show, "question"):
+                        content_to_show = content_to_show.question
+                    elif isinstance(content_to_show, dict):
+                        content_to_show = content_to_show.get("summary", 
+                                          content_to_show.get("question", 
+                                          str(content_to_show)))
+                    
+                    final_content = str(content_to_show)
                     
                     yield self.emit_response(
                         content=final_content,
@@ -316,14 +327,19 @@ class PlannerAgent(BaseAgent):
 
             elif result.type == MessageType.QUESTION:
                 # Escalation
+                content_to_show = result.content
+                if hasattr(content_to_show, "question"):
+                    content_to_show = content_to_show.question
+                elif isinstance(content_to_show, dict):
+                    content_to_show = content_to_show.get("question", str(content_to_show))
+                
                 yield self.emit_response(
-                    content=str(result.content),
+                    content=str(content_to_show),
                     is_streaming=False,
                     session_id=session_id
                 )
 
-            # Note: interactions for CHAT type are recorded inside process() if it uses stream, 
-            # but wait, process() doesn't record. Let's record here for CHAT.
+            # Record final interactions for CHAT
             if result.type == MessageType.CHAT:
                 await self.state_manager.add_interaction("assistant", str(result.content))
 
@@ -333,3 +349,11 @@ class PlannerAgent(BaseAgent):
             raise
         finally:
             yield self.emit_status("idle")
+
+    def _extract_json(self, text: str) -> str:
+        text = text.strip()
+        if "```json" in text:
+            text = text.split("```json")[1].split("```")[0].strip()
+        elif "```" in text:
+            text = text.split("```")[1].split("```")[0].strip()
+        return text

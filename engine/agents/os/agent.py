@@ -65,10 +65,10 @@ class OSAgent(BaseAgent):
         self.continuous_ui_scan = False
 
         # Resolve models from global config
-        local_model = "gemini/gemini-2.0-flash"
+        local_model = "gemini/gemini-3.1-flash-lite-preview"
         if self.agent_settings and self.agent_settings.model:
             local_model = self.agent_settings.model.get(
-                "model_name", "gemini/gemini-2.0-flash",
+                "model_name", "gemini/gemini-3.1-flash-lite-preview",
             )
 
         model_to_use = resolve_model(local_model)

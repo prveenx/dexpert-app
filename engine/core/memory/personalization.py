@@ -35,7 +35,7 @@ class PersonalizationEngine:
 
         # Use a utility-grade model for classification
         self.llm = llm or LLMClient(
-            model="gemini/gemini-2.0-flash",
+            model="gemini/gemini-3.1-flash-lite-preview",
             temperature=0.1,
             max_tokens=2048,
             agent_name="Memory_Cortex",
@@ -170,6 +170,29 @@ class PersonalizationEngine:
 
         except Exception as e:
             log.error(f"Memory_Cortex: CRUD failed: {e}", exc_info=True)
+
+    async def get_omni_context(self, current_task: str) -> Dict[str, str]:
+        """
+        Fetch split omni-context:
+        - Static: User facts, rules, and long-term preferences.
+        - Dynamic: (Placeholder for now) Session-specific transient context.
+        """
+        facts = await self.db.get_all_facts()
+        
+        static_context = "USER PERSONALIZATION & RULES:\n"
+        if not facts:
+            static_context += "- No specific user facts or rules stored yet."
+        else:
+            for f in facts:
+                static_context += f"- [{f['category'].upper()}] {f['value']}\n"
+        
+        # Dynamic context could be expanded with clipboard, active window, etc.
+        dynamic_context = f"Current focal task: {current_task}"
+        
+        return {
+            "static": static_context,
+            "dynamic": dynamic_context
+        }
 
     @staticmethod
     def _extract_json(text: str) -> str:

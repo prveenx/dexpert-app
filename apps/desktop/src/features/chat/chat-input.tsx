@@ -10,11 +10,19 @@ interface SendOptions {
 
 interface ChatInputProps {
   onSend: ((text: string, options: SendOptions) => void) | ((text: string) => void);
+  onStop?: () => void;
+  isWorking?: boolean;
   disabled?: boolean;
   isInitial?: boolean;
 }
 
-export const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled, isInitial = false }) => {
+export const ChatInput: React.FC<ChatInputProps> = ({ 
+  onSend, 
+  onStop,
+  isWorking = false,
+  disabled, 
+  isInitial = false 
+}) => {
   const [text, setText] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [isDeepResearch, setIsDeepResearch] = useState(false);
@@ -222,20 +230,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled, isInitia
     return <FileIcon className="text-zinc-500 dark:text-zinc-400 w-6 h-6" />;
   };
 
-  const containerClasses = isInitial 
-    ? "w-full relative" 
-    : "absolute bottom-0 left-0 right-0 z-30 pointer-events-none";
+  const containerClasses = "w-full relative z-30 pointer-events-auto";
 
   return (
     <div className={containerClasses}>
-      {!isInitial && (
-        <>
-          <div className="absolute left-0 right-0 h-10 bg-gradient-to-t from-white to-transparent dark:from-[#1a1a1a] pointer-events-none" style={{ top: '-40px' }} />
-          <div className="absolute inset-0 bg-white dark:bg-[#1a1a1a] pointer-events-none" />
-        </>
-      )}
-
-      <div className={`relative flex justify-center w-full ${!isInitial ? 'px-4 pb-6' : ''}`}>
+      <div className={`relative flex justify-center w-full ${!isInitial ? 'pb-2' : ''}`}>
         <div className="w-full max-w-5xl pointer-events-auto">
           
           <div 
@@ -400,15 +399,21 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled, isInitia
                   </div>
 
                   <button 
-                      onClick={toggleRecording}
+                      onClick={isWorking ? onStop : toggleRecording}
                       className={`flex items-center justify-center h-9 w-9 rounded-full transition-colors ${
-                        isRecording 
-                          ? 'bg-red-100 text-red-500 dark:bg-red-900/30 dark:text-red-400 animate-pulse' 
-                          : 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 hover:opacity-90'
+                        isWorking 
+                          ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900' 
+                          : isRecording 
+                            ? 'bg-red-100 text-red-500 dark:bg-red-900/30 dark:text-red-400 animate-pulse' 
+                            : 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 hover:opacity-90'
                       }`}
-                      title={isRecording ? "Stop recording" : "Voice input"}
+                      title={isWorking ? "Stop task" : isRecording ? "Stop recording" : "Voice input"}
                   >
-                      {isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                      {isWorking ? (
+                        <div className="w-2.5 h-2.5 bg-current rounded-sm" />
+                      ) : (
+                        isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />
+                      )}
                   </button>
 
                   {text.trim() || files.length > 0 ? (
@@ -428,7 +433,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled, isInitia
           </div>
           
           {!isInitial && (
-            <div className="text-center mt-3 text-xs text-zinc-400 dark:text-zinc-500 font-medium relative z-10">
+            <div className="text-center mt-1.5 text-xs text-zinc-400 dark:text-zinc-500 font-medium relative z-10">
                Dexpert AI can make mistakes. Check important info.
             </div>
           )}

@@ -1,19 +1,21 @@
 // ── App Shell ──────────────────────────────────────────
-// Main authenticated layout: TitleBar + Sidebar + Chat + AgentsPanel
+// Main authenticated layout: TitleBar + Sidebar + Chat
 // ───────────────────────────────────────────────────────
 
 import React, { useState, useCallback } from 'react';
 import { TitleBar } from './title-bar';
-import { Sidebar } from '../features/sidebar';
-import { ChatView } from '../features/chat';
-import { AgentsPanel } from '../features/agents-panel';
+import { Sidebar } from '../features/sidebar/sidebar';
+import { ChatView } from '../features/chat/chat-view';
 import { EngineStatusBanner } from './engine-status-banner';
 import { useEngineHealth } from '../hooks/use-engine-health';
 import { useSessionStore } from '../stores/session.store';
+import { WorkspaceView } from '../features/workspace/workspace-view';
+import { ExtensionsView } from '../features/extensions/extensions-view';
 
 export function AppShell() {
   const status = useEngineHealth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [currentView, setCurrentView] = useState<'chat' | 'workspace' | 'extensions' | 'settings'>('chat');
   
   // Session Store
   const sessions = useSessionStore((s) => s.sessions);
@@ -21,13 +23,32 @@ export function AppShell() {
   const setActive = useSessionStore((s) => s.setActive);
   const renameSession = useSessionStore((s) => s.renameSession);
   const deleteSession = useSessionStore((s) => s.deleteSession);
+  const togglePinSession = useSessionStore((s) => s.togglePinSession);
 
   const handleNewTask = useCallback(() => {
-    // In a real app, this would hit the API and then setActive
     const newId = crypto.randomUUID();
-    // This is just a UI-only demo for now, usually the engine creates sessions
     setActive(newId);
+    setCurrentView('chat');
   }, [setActive]);
+
+  // View Switcher Helper
+  const renderView = () => {
+    switch (currentView) {
+      case 'chat':
+        return <ChatView />;
+      case 'workspace':
+        return <WorkspaceView />;
+      case 'extensions':
+        return <ExtensionsView />;
+      case 'settings':
+        return <div className="flex-1 flex flex-col items-center justify-center text-zinc-500 bg-white dark:bg-zinc-950 p-8">
+          <h2 className="text-2xl font-bold text-zinc-800 dark:text-zinc-200 mb-4">Settings</h2>
+          <p className="max-w-md text-center">Configure your models, API keys, and personalization preferences here.</p>
+        </div>;
+      default:
+        return <ChatView />;
+    }
+  };
 
   return (
     <div className="flex h-screen flex-col bg-zinc-950 text-zinc-100 overflow-hidden font-sans">
@@ -39,24 +60,25 @@ export function AppShell() {
         {/* Sidebar */}
         <Sidebar 
           isOpen={isSidebarOpen}
+          currentView={currentView}
+          setView={setCurrentView}
           sessions={sessions}
           activeSessionId={currentSessionId}
           onNewTask={handleNewTask}
-          onSelectSession={setActive}
+          onSelectSession={(id) => {
+            setActive(id);
+            setCurrentView('chat');
+          }}
           onRenameSession={renameSession}
           onDeleteSession={deleteSession}
+          onTogglePinSession={togglePinSession}
           onToggleCollapse={() => setIsSidebarOpen(!isSidebarOpen)}
         />
 
-        {/* Chat (main center area) */}
+        {/* Dynamic View Area */}
         <main className="flex-1 flex flex-col min-w-0 bg-white dark:bg-zinc-950 relative z-10 shadow-2xl">
-          <ChatView />
+          {renderView()}
         </main>
-
-        {/* Agents Panel (right-side activity monitor) */}
-        <aside className="w-80 flex-shrink-0 border-l border-zinc-200 dark:border-zinc-800 hidden lg:block">
-          <AgentsPanel />
-        </aside>
       </div>
     </div>
   );

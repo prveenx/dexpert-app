@@ -8,15 +8,28 @@ Provides:
 """
 
 import os
+import platform
 from typing import Optional
+from pathlib import Path
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings
 
+def get_appdata_dir() -> str:
+    system = platform.system()
+    if system == "Windows":
+        base = os.environ.get("APPDATA") or os.path.expanduser("~")
+        return os.path.join(base, "Dexpert")
+    elif system == "Darwin":
+        return os.path.expanduser("~/Library/Application Support/Dexpert")
+    else:
+        return os.path.expanduser("~/.config/dexpert")
+
+APP_DIR = get_appdata_dir()
 
 class AgentConfig(BaseModel):
     """Configuration for a single agent."""
     enabled: bool = True
-    model: str = "gemini/gemini-2.0-flash"
+    model: str = "gemini/gemini-3.1-flash-lite-preview"
     temperature: float = 0.7
     max_tokens: int = 4096
     timeout: int = 120
@@ -32,10 +45,10 @@ class DexpertSettings(BaseSettings):
     log_level: str = "info"
 
     # Storage
-    runtime_dir: str = "runtime"
-    db_path: str = "runtime/memory.db"
-    log_dir: str = "runtime/logs"
-    session_dir: str = "runtime/sessions"
+    runtime_dir: str = APP_DIR
+    db_path: str = os.path.join(APP_DIR, "memory.db")
+    log_dir: str = os.path.join(APP_DIR, "logs")
+    session_dir: str = os.path.join(APP_DIR, "sessions")
 
     # LLM API Keys
     google_ai_api_key: Optional[str] = None
@@ -45,7 +58,7 @@ class DexpertSettings(BaseSettings):
     nvidia_nim_api_key: Optional[str] = None
 
     # Default model
-    default_model: str = "gemini/gemini-2.0-flash"
+    default_model: str = "gemini/gemini-3.1-flash-lite-preview"
     default_temperature: float = 0.7
     default_max_tokens: int = 4096
 
@@ -53,9 +66,9 @@ class DexpertSettings(BaseSettings):
     global_model_override: Optional[str] = None
 
     # Agent configs
-    planner: AgentConfig = AgentConfig(model="gemini/gemini-2.0-flash", temperature=0.7)
-    browser: AgentConfig = AgentConfig(model="gemini/gemini-2.0-flash", temperature=0.5)
-    os_agent: AgentConfig = AgentConfig(model="gemini/gemini-2.0-flash", temperature=0.3)
+    planner: AgentConfig = AgentConfig(model="gemini/gemini-3.1-flash-lite-preview", temperature=0.7)
+    browser: AgentConfig = AgentConfig(model="gemini/gemini-3.1-flash-lite-preview", temperature=0.5)
+    os_agent: AgentConfig = AgentConfig(model="gemini/gemini-3.1-flash-lite-preview", temperature=0.3)
 
     # Memory & Personalization
     enable_personalization: bool = True

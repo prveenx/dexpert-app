@@ -17,17 +17,16 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime
 
 import aiosqlite
+from core.config.settings import get_settings
 
 log = logging.getLogger(__name__)
-
-RUNTIME_DIR = "runtime"
-DEFAULT_DB_PATH = os.path.join(RUNTIME_DIR, "memory.db")
-
 
 class Database:
     """Async SQLite database wrapper."""
 
-    def __init__(self, db_path: str = DEFAULT_DB_PATH):
+    def __init__(self, db_path: Optional[str] = None):
+        if db_path is None:
+            db_path = get_settings().db_path
         self.db_path = db_path
         self._conn: Optional[aiosqlite.Connection] = None
         self._lock = asyncio.Lock()

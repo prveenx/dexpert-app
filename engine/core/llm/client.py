@@ -137,6 +137,7 @@ class LLMClient:
         attempts = 0
         while True:
             try:
+                print(f"DEBUG: LLMClient calling LiteLLM.acompletion with model={kwargs['model']}")
                 response = await acompletion(**kwargs, timeout=60.0)
 
                 async for chunk in response:

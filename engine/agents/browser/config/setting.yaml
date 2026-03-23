@@ -53,8 +53,8 @@ perception:
   generate_ax_ids: true
   visual_mode: false        # Off by default for cost efficiency
   screenshot_quality: 80
-  vision_model: "gemini/gemini-2.0-flash"  # LiteLLM model string for analyze_visual tool
-  model_name: "gemini/gemini-2.0-flash"   # Primary reasoning model for DOM interaction
+  vision_model: "gemini/gemini-3.1-flash-lite-preview"  # LiteLLM model string for analyze_visual tool
+  model_name: "gemini/gemini-3.1-flash-lite-preview"   # Primary reasoning model for DOM interaction
 
 # --- CAPTCHA ---
 captcha:

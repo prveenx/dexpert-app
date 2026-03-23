@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "python main.py"
+    "serve": ".venv\\Scripts\\python.exe main.py"
   },
   "dependencies": {
     "dotenv": "^16.0.0"

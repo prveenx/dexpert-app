@@ -8,6 +8,7 @@ export interface Session {
   isActive: boolean;
   messageCount: number;
   lastMessage?: string;
+  pinned?: boolean;
 }
 
 export interface SessionMeta {

@@ -1,5 +1,5 @@
 [package]
-name = "pcagent_bridge"
+name = "dexpert-perception"
 version = "0.1.0"
 edition = "2021"
 

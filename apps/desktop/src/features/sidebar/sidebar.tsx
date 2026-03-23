@@ -7,15 +7,15 @@ import type { Session } from '@dexpert/types';
 import {
   PanelLeftClose,
   MoreHorizontal,
-  Pin,
   Trash2,
   Pencil,
   Settings,
   LogOut,
-  CreditCard,
   Blocks,
   LayoutGrid,
-  Bot
+  Bot,
+  Pin,
+  PinOff
 } from 'lucide-react';
 
 interface SidebarItemProps {
@@ -24,6 +24,7 @@ interface SidebarItemProps {
   onClick: () => void;
   onRename: (id: string, newTitle: string) => void;
   onDelete: (id: string) => void;
+  onTogglePin: (id: string) => void;
 }
 
 const SidebarItem: React.FC<SidebarItemProps> = ({
@@ -32,6 +33,7 @@ const SidebarItem: React.FC<SidebarItemProps> = ({
   onClick,
   onRename,
   onDelete,
+  onTogglePin,
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -71,7 +73,12 @@ const SidebarItem: React.FC<SidebarItemProps> = ({
       onClick={onClick}
     >
       <div className="flex items-center gap-3 min-w-0 flex-1">
-        <Bot className={`w-4 h-4 shrink-0 ${isActive ? 'text-violet-500' : 'text-zinc-400'}`} />
+        <div className="relative shrink-0">
+          <Bot className={`w-4 h-4 ${isActive ? 'text-violet-500' : 'text-zinc-400'}`} />
+          {session.pinned && (
+            <Pin className="w-2 h-2 text-violet-500 absolute -top-1 -right-1 fill-violet-500" />
+          )}
+        </div>
         {isEditing ? (
           <input
             ref={inputRef}
@@ -101,7 +108,7 @@ const SidebarItem: React.FC<SidebarItemProps> = ({
         </button>
 
         {isMenuOpen && (
-          <div className="absolute left-0 top-8 w-40 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-xl z-50 py-1.5 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+          <div className="absolute right-0 top-8 w-40 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-xl z-50 py-1.5 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -111,6 +118,24 @@ const SidebarItem: React.FC<SidebarItemProps> = ({
               className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 flex items-center gap-2.5 text-zinc-700 dark:text-zinc-300"
             >
               <Pencil className="w-3.5 h-3.5" /> Rename
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onTogglePin(session.id);
+                setIsMenuOpen(false);
+              }}
+              className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 flex items-center gap-2.5 text-zinc-700 dark:text-zinc-300"
+            >
+              {session.pinned ? (
+                <>
+                  <PinOff className="w-3.5 h-3.5" /> Unpin
+                </>
+              ) : (
+                <>
+                  <Pin className="w-3.5 h-3.5" /> Pin
+                </>
+              )}
             </button>
             <div className="h-px bg-zinc-100 dark:bg-zinc-800 my-1" />
             <button
@@ -132,23 +157,52 @@ const SidebarItem: React.FC<SidebarItemProps> = ({
 
 interface SidebarProps {
   isOpen: boolean;
+  currentView: 'chat' | 'workspace' | 'extensions' | 'settings';
+  setView: (view: 'chat' | 'workspace' | 'extensions' | 'settings') => void;
   sessions: Session[];
   activeSessionId: string | null;
   onNewTask: () => void;
   onSelectSession: (id: string) => void;
   onRenameSession: (id: string, newTitle: string) => void;
   onDeleteSession: (id: string) => void;
+  onTogglePinSession: (id: string) => void;
   onToggleCollapse: () => void;
 }
 
+const NavItem: React.FC<{
+  icon: React.ReactNode;
+  label: string;
+  isActive: boolean;
+  onClick: () => void;
+  isOpen: boolean;
+}> = ({ icon, label, isActive, onClick, isOpen }) => (
+  <button
+    onClick={onClick}
+    className={`flex items-center gap-3 w-[calc(100%-16px)] mx-2 p-2.5 rounded-xl transition-all duration-200 ${
+      isActive
+        ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 shadow-sm'
+        : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50'
+    } ${!isOpen ? 'justify-center' : ''}`}
+    title={!isOpen ? label : undefined}
+  >
+    <div className={`${isActive ? 'scale-110' : ''} transition-transform`}>
+      {icon}
+    </div>
+    {isOpen && <span className="text-sm font-semibold">{label}</span>}
+  </button>
+);
+
 export const Sidebar: React.FC<SidebarProps> = ({
   isOpen,
+  currentView,
+  setView,
   sessions,
   activeSessionId,
   onNewTask,
   onSelectSession,
   onRenameSession,
   onDeleteSession,
+  onTogglePinSession,
   onToggleCollapse,
 }) => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -167,17 +221,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <div
       className={`relative flex-shrink-0 flex flex-col h-full bg-zinc-50 dark:bg-[#09090b] border-r border-zinc-200 dark:border-zinc-800 transition-all duration-300 ease-in-out ${
-        isOpen ? 'w-[280px]' : 'w-[72px]'
+        isOpen ? 'w-[280px]' : 'w-[76px]'
       }`}
     >
       {/* Header */}
       <div className="p-4 flex items-center justify-between">
         {isOpen && (
-          <div className="flex items-center gap-2 px-2">
-            <div className="w-7 h-7 bg-violet-600 rounded-lg flex items-center justify-center">
-              <Bot className="w-4 h-4 text-white" />
+          <div className="flex items-center gap-2.5 px-2">
+            <div className="w-8 h-8 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-violet-500/20">
+              <Bot className="w-5 h-5 text-white" />
             </div>
-            <span className="font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">Dexpert</span>
+            <span className="font-extrabold text-zinc-900 dark:text-zinc-100 tracking-tight text-lg">Dexpert</span>
           </div>
         )}
         <button
@@ -191,55 +245,92 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* New Task Button */}
-      <div className="px-4 mb-4">
+      <div className="px-4 mb-6">
         <button
           onClick={onNewTask}
-          className={`flex items-center gap-3 w-full p-3 rounded-xl bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:opacity-90 transition-all shadow-sm ${
+          className={`flex items-center gap-3 w-full p-3 rounded-xl bg-violet-600 hover:bg-violet-700 text-white transition-all shadow-md shadow-violet-500/10 ${
             !isOpen ? 'justify-center' : ''
           }`}
         >
-          <div className="w-5 h-5 flex items-center justify-center font-bold text-lg leading-none">+</div>
-          {isOpen && <span className="text-sm font-semibold">New Session</span>}
+          <div className="w-5 h-5 flex items-center justify-center font-bold text-xl leading-none">+</div>
+          {isOpen && <span className="text-sm font-bold">New Mission</span>}
         </button>
       </div>
 
-      {/* Navigation */}
-      <div className="flex-1 overflow-y-auto space-y-6 pt-2 custom-scrollbar">
-        {isOpen && (
-          <div className="space-y-1">
-            <div className="px-6 py-2 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+      {/* Scrollable Area */}
+      <div className="flex-1 overflow-y-auto space-y-8 pt-2 custom-scrollbar pb-4">
+        {/* Main Navigation */}
+        <div className="space-y-1">
+          {isOpen && (
+            <div className="px-6 py-2 text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em] mb-1">
+              Menu
+            </div>
+          )}
+          <NavItem
+            icon={<Bot className="w-5 h-5" />}
+            label="Chat"
+            isActive={currentView === 'chat'}
+            onClick={() => setView('chat')}
+            isOpen={isOpen}
+          />
+          <NavItem
+            icon={<LayoutGrid className="w-5 h-5" />}
+            label="Workspace"
+            isActive={currentView === 'workspace'}
+            onClick={() => setView('workspace')}
+            isOpen={isOpen}
+          />
+          <NavItem
+            icon={<Blocks className="w-5 h-5" />}
+            label="Extensions"
+            isActive={currentView === 'extensions'}
+            onClick={() => setView('extensions')}
+            isOpen={isOpen}
+          />
+        </div>
+
+        {/* Recent Sessions */}
+        <div className="space-y-1">
+          {isOpen && (
+            <div className="px-6 py-2 text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em] mb-1">
               Recent Sessions
             </div>
-            {sessions.map((session) => (
-              <SidebarItem
-                key={session.id}
-                session={session}
-                isActive={activeSessionId === session.id}
-                onClick={() => onSelectSession(session.id)}
-                onRename={onRenameSession}
-                onDelete={onDeleteSession}
-              />
-            ))}
-            {sessions.length === 0 && (
-              <div className="px-6 py-4 text-xs text-zinc-400 italic">No sessions yet</div>
+          )}
+          <div className="space-y-0.5">
+            {[...sessions]
+              .sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0))
+              .map((session) => (
+                <SidebarItem
+                  key={session.id}
+                  session={session}
+                  isActive={activeSessionId === session.id && currentView === 'chat'}
+                  onClick={() => onSelectSession(session.id)}
+                  onRename={onRenameSession}
+                  onDelete={onDeleteSession}
+                  onTogglePin={onTogglePinSession}
+                />
+              ))}
+            {sessions.length === 0 && isOpen && (
+              <div className="px-6 py-4 text-xs text-zinc-400 italic">No missions yet</div>
+            )}
+            {!isOpen && sessions.length > 0 && (
+              <div className="flex flex-col items-center gap-3 py-2 opacity-50">
+                <div className="w-8 h-px bg-zinc-200 dark:bg-zinc-800" />
+                <Bot className="w-5 h-5 text-zinc-400" />
+              </div>
             )}
           </div>
-        )}
-
-        {!isOpen && (
-          <div className="flex flex-col items-center gap-4 py-4">
-             <div className="w-8 h-px bg-zinc-200 dark:bg-zinc-800" />
-             <LayoutGrid className="w-5 h-5 text-zinc-400" />
-             <Blocks className="w-5 h-5 text-zinc-400" />
-          </div>
-        )}
+        </div>
       </div>
 
       {/* Footer / Profile */}
       <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-black/20" ref={profileRef}>
         {isProfileOpen && isOpen && (
           <div className="absolute bottom-[85px] left-4 right-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl p-1.5 z-50 animate-in slide-in-from-bottom-2 duration-200">
-            <button className="w-full text-left px-3 py-2.5 text-sm rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-800 flex items-center gap-3 text-zinc-600 dark:text-zinc-300">
+            <button 
+              onClick={() => { setView('settings'); setIsProfileOpen(false); }}
+              className={`w-full text-left px-3 py-2.5 text-sm rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-800 flex items-center gap-3 ${currentView === 'settings' ? 'text-violet-600' : 'text-zinc-600 dark:text-zinc-300'}`}
+            >
               <Settings className="w-4 h-4" /> Settings
             </button>
             <div className="h-px bg-zinc-100 dark:bg-zinc-800 my-1.5" />
@@ -255,7 +346,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             !isOpen ? 'justify-center' : ''
           }`}
         >
-          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-sm">
+          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white text-[10px] font-bold shrink-0 shadow-md">
             USER
           </div>
           {isOpen && (

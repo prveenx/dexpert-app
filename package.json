@@ -18,10 +18,10 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev --ui=tui",
-    "dev:tui": "python scripts/tui_dev.py",
+    "dev:tui": ".\\engine\\.venv\\Scripts\\python.exe scripts/tui_dev.py",
     "dev:desktop": "turbo run dev --filter=@dexpert/desktop",
     "dev:web": "turbo run dev --filter=@dexpert/web",
-    "dev:engine": "cd engine && python main.py",
+    "dev:engine": "cd engine && .\\.venv\\Scripts\\python.exe main.py",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "clean": "turbo run clean && rimraf node_modules",

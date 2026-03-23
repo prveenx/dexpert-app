@@ -67,7 +67,7 @@ class BrowserAgent(BaseAgent):
         self._session_id = session_id
 
         # 1. Load Configuration & Prompts from agents/browser/config/
-        config_dir = Path(__file__).parent.parent / "config"
+        config_dir = Path(__file__).parent / "config"
         setting_path = config_dir / "setting.yaml"
         prompt_path = config_dir / "prompt.yaml"
 
@@ -75,18 +75,28 @@ class BrowserAgent(BaseAgent):
             self.settings = BrowserAgentSettings.load_from_yaml(str(setting_path))
             self.prompts = BrowserPrompts.load_from_yaml(str(prompt_path))
         except FileNotFoundError:
-            log.warning("Browser config files not found, using defaults")
-            self.settings = None
-            self.prompts = None
+            log.warning(f"Browser config files not found at {config_dir}, using defaults")
+            # Create minimal default settings if files are missing
+            from .config.config import CoreConfig, EngineConfig, ControllerConfig, PerceptionConfig, DebugConfig
+            self.settings = BrowserAgentSettings(
+                core=CoreConfig(agent_id="browser", version="0.1.0", description="Browser Agent"),
+                engine=EngineConfig(),
+                controller=ControllerConfig(),
+                perception=PerceptionConfig(),
+                debug=DebugConfig(enabled=False)
+            )
+            self.prompts = BrowserPrompts(
+                system_prompt="You are a Browser Agent. Use available tools to navigate and extract information from the web.",
+                vision_system_prompt="Analyze the provided screenshot.",
+                extraction_prompt="Extract data from the page.",
+                error_recovery_prompt="Recover from errors."
+            )
 
-        # 2. Infrastructure (Lazy Load)
-        if self.settings:
-            self.browser_manager = BrowserManager(self.settings)
-        else:
-            self.browser_manager = None
+        # 2. Infrastructure
+        self.browser_manager = BrowserManager(self.settings)
 
         # 3. Intelligence — resolve models from global config
-        main_model_name = "gemini/gemini-2.0-flash"
+        main_model_name = "gemini/gemini-3.1-flash-lite-preview"
         vision_model_name = ""
         if self.settings and self.settings.perception:
             main_model_name = self.settings.perception.model_name or main_model_name
@@ -125,9 +135,14 @@ class BrowserAgent(BaseAgent):
             recent_window=15,
         )
 
+        # 5. Checkpoint Manager (for session-aware persistence)
+        from core.session.checkpoint import CheckpointManager
+        self.checkpoint_mgr = CheckpointManager()
+
     async def cleanup(self):
         log.info("Cleaning up Browser Agent resources...")
-        await self.browser_manager.close(force=True)
+        if self.browser_manager:
+            await self.browser_manager.close(force=True)
 
     async def process(self, message: Message) -> Message:
         """
@@ -211,8 +226,9 @@ class BrowserAgent(BaseAgent):
                     goal = task.goal
 
                     # Only load checkpoint in RESUME mode (prevents zombie state)
-                    if self.session and self.session.is_resume:
-                        checkpoint = self._load_checkpoint()
+                    is_resume = task.context.get("is_resume", False)
+                    if is_resume and self._session_id:
+                        checkpoint = await self._load_checkpoint()
                         if checkpoint:
                             saved_task = checkpoint.get('task_id', '')
                             log.info(f"Session RESUME: Loading checkpoint (task: {saved_task})")
@@ -233,7 +249,7 @@ class BrowserAgent(BaseAgent):
                         else:
                             log.info("Session RESUME: No checkpoint found, starting fresh.")
                     else:
-                        log.info("New session: Starting with clean state (no checkpoint).")
+                        log.info("New session or non-resume: Starting with clean state.")
 
                 # Explicit Context Injection overrides checkpoint
                 start_url = task.context.get("url") or task.context.get("start_url")
@@ -282,9 +298,11 @@ class BrowserAgent(BaseAgent):
                         f"Browser Agent crashed after {max_retries} attempts: {last_error}",
                     )
                 # Ensure browser is closed before retry
-                await self.browser_manager.close(force=True)
+                if self.browser_manager:
+                    await self.browser_manager.close(force=True)
             finally:
-                await self.browser_manager.close()
+                if self.browser_manager:
+                    await self.browser_manager.close()
 
     def _init_scratchpad_from_task(self, ctx: BrowserAgentContext, task: TaskFrame) -> None:
         """
@@ -319,8 +337,8 @@ class BrowserAgent(BaseAgent):
             f"target={target_count}, sub_tasks={len(sub_tasks)}"
         )
 
-    def _save_checkpoint(self, task_id: str, ctx: BrowserAgentContext):
-        """Saves current state to the session directory (or legacy path)."""
+    async def _save_checkpoint(self, task_id: str, ctx: BrowserAgentContext):
+        """Saves current state via CheckpointManager."""
         try:
             data = {
                 "task_id": task_id,
@@ -329,9 +347,8 @@ class BrowserAgent(BaseAgent):
                 "history": self._context_mgr.get_raw_history()[-10:],
             }
             
-            if self.session:
-                # Session-aware: save to data/sessions/<session_id>/
-                self.session.save_checkpoint(data)
+            if self._session_id:
+                await self.checkpoint_mgr.save(self._session_id, data)
             else:
                 # Fallback: legacy path
                 with open(".browser_checkpoint.json", "w") as f:
@@ -339,10 +356,10 @@ class BrowserAgent(BaseAgent):
         except Exception as e:
             log.warning(f"BrowserAgent: Failed to save checkpoint: {e}")
 
-    def _load_checkpoint(self) -> Optional[Dict[str, Any]]:
-        """Loads state from the session directory."""
-        if self.session:
-            return self.session.load_checkpoint()
+    async def _load_checkpoint(self) -> Optional[Dict[str, Any]]:
+        """Loads state via CheckpointManager."""
+        if self._session_id:
+            return await self.checkpoint_mgr.load(self._session_id)
         
         # Fallback: legacy path
         try:
@@ -546,7 +563,7 @@ class BrowserAgent(BaseAgent):
                     )
 
             # 8. PERSISTENCE
-            self._save_checkpoint(task_id, ctx)
+            await self._save_checkpoint(task_id, ctx)
 
         return {
             "status": AgentStatus.FAILURE,
