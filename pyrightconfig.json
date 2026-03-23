@@ -4,5 +4,7 @@
       "root": "engine",
       "extraPaths": ["engine"]
     }
-  ]
+  ],
+  "venvPath": "engine",
+  "venv": ".venv"
 }

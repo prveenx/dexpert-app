@@ -2,6 +2,7 @@
 FastAPI application factory.
 """
 
+import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,20 +10,31 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.routers import health, sessions, agents, settings, extensions
 from api.websocket.handler import websocket_endpoint
 from extensions.manager import ExtensionManager
+from core.config.settings import get_settings
+
+log = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown lifecycle."""
+    log.info("[Engine] Starting up...")
+
+    # Initialize extension manager (MCP servers, plugins)
     mgr = ExtensionManager.get_instance()
     await mgr.start()
-    print("Application startup complete")
+
+    log.info("[Engine] Startup complete — all systems online")
     yield
-    print("[Engine] Shutting down...")
+    log.info("[Engine] Shutting down...")
     await mgr.stop()
+    log.info("[Engine] Shutdown complete")
 
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
+    app_settings = get_settings()
+
     app = FastAPI(
         title="Dexpert Engine",
         version="0.1.0",
@@ -30,10 +42,17 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # CORS — only allow local connections
+    # CORS — allow local Electron and dev server connections
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:*", "http://127.0.0.1:*"],
+        allow_origins=[
+            "http://localhost:5173",       # Vite dev server
+            "http://localhost:3000",        # Next.js dev server
+            "http://127.0.0.1:5173",
+            "http://127.0.0.1:3000",
+            f"http://127.0.0.1:{app_settings.engine_port}",
+            "app://.",                      # Electron production
+        ],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -44,6 +63,7 @@ def create_app() -> FastAPI:
     app.include_router(sessions.router, prefix="/api", tags=["sessions"])
     app.include_router(agents.router, prefix="/api", tags=["agents"])
     app.include_router(settings.router, prefix="/api", tags=["settings"])
+    app.include_router(extensions.router, prefix="/api", tags=["extensions"])
 
     # WebSocket
     app.add_api_websocket_route("/ws", websocket_endpoint)

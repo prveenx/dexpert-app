@@ -23,6 +23,9 @@ const api = {
     getToken: (): Promise<string | null> => {
       return ipcRenderer.invoke(IPC.AUTH_GET_TOKEN);
     },
+    setToken: (token: string): Promise<void> => {
+      return ipcRenderer.invoke(IPC.AUTH_SET_TOKEN, token);
+    },
     clearToken: (): Promise<void> => {
       return ipcRenderer.invoke(IPC.AUTH_CLEAR);
     },

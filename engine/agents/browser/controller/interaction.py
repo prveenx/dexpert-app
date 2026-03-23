@@ -3,8 +3,8 @@ import asyncio
 from typing import Optional, Union, Literal
 
 from playwright.async_api import Page, Locator, TimeoutError as PlaywrightTimeoutError
-from .browser.state import BrowserState, DOMNode
-from .browser.config.config import BrowserAgentSettings
+from ..state import BrowserState, DOMNode
+from ..config.config import BrowserAgentSettings
 
 log = logging.getLogger(__name__)
 

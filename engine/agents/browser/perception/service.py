@@ -4,8 +4,8 @@ import time
 import os
 from typing import Optional, Dict, Any, List
 from playwright.async_api import Page
-from .browser.state import BrowserState, DOMNode, BoundingBox
-from .browser.config.config import BrowserAgentSettings
+from ..state import BrowserState, DOMNode, BoundingBox
+from ..config.config import BrowserAgentSettings
 
 log = logging.getLogger(__name__)
 

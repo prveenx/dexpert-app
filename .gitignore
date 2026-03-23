@@ -17,6 +17,8 @@ out/
 .env.local
 .env.*.local
 Dexpert.txt
+.env.example
+PCAgent_MAF.txt
 
 # Python
 __pycache__/

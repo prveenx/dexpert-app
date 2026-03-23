@@ -11,7 +11,7 @@ import pyautogui
 log = logging.getLogger(__name__)
 
 # Import the advanced processor we added previously
-from .os.perception.processor import SemanticProcessor, Printer
+from ..perception.processor import SemanticProcessor, Printer
 
 class OSInteractionController:
     """

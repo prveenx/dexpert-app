@@ -47,3 +47,23 @@ class DexpertError(Exception):
             "message": self.message,
             "details": self.details,
         }
+
+
+class FatalToolError(DexpertError):
+    """
+    Tool error that cannot be retried — agent should abort the task.
+    
+    Example: navigation to a page that is permanently 403/404.
+    """
+    def __init__(self, message: str, details: dict | None = None):
+        super().__init__(ErrorCode.TOOL_EXECUTION_ERROR, message, details)
+
+
+class RetryableToolError(DexpertError):
+    """
+    Tool error that may succeed on retry — agent should try again.
+    
+    Example: element not yet visible, network timeout.
+    """
+    def __init__(self, message: str, details: dict | None = None):
+        super().__init__(ErrorCode.TOOL_EXECUTION_ERROR, message, details)

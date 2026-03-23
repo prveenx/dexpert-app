@@ -25,30 +25,25 @@ import os
 import logging
 import asyncio
 import json
+from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 
 from agents.base import BaseAgent
-from core.protocol import (
-    Message, AgentType, MessageType, AgentStatus, TaskFrame, ResultFrame, QuestionFrame
+from core.protocol.messages import (
+    Message, AgentType, MessageType, AgentStatus, TaskFrame, ResultFrame, QuestionFrame,
 )
 from core.scratchpad import Scratchpad, WorkflowPhase, TaskComplexity
 from core.context.episodic import EpisodicContext as ContextManager
-from llm.client import LLMClient
-from llm.parser import ActionParser
-from utils.exeception import FatalToolError, RetryableToolError
+from core.llm.client import LLMClient
+from core.llm.parser import ActionParser
+from core.session import SessionManager
+from core.config.settings import get_settings, resolve_model, resolve_vision_model
+from utils.exceptions import FatalToolError, RetryableToolError
 
-from .browser.config.config import BrowserAgentSettings, BrowserPrompts
-from .browser.manager import BrowserManager
-from .browser.context import BrowserAgentContext
-from .browser.state import BrowserState
-
-from config.config import resolve_model, resolve_vision_model
-
-# Session manager is optional (for backward compat)
-try:
-    from core.session import SessionManager
-except ImportError:
-    SessionManager = None
+from .config.config import BrowserAgentSettings, BrowserPrompts
+from .manager import BrowserManager
+from .context import BrowserAgentContext
+from .state import BrowserState
 
 log = logging.getLogger(__name__)
 
@@ -61,53 +56,66 @@ _MAX_CONSECUTIVE_ERRORS = 5
 class BrowserAgent(BaseAgent):
     """
     Specialist sub-agent for all web-based tasks.
-    
-    Now session-aware: checkpoints are isolated per session and
+
+    Session-aware: checkpoints are isolated per session and
     context is managed via a token-aware sliding window.
     """
 
-    def __init__(self, session=None):
-        super().__init__("BrowserSpecialist", AgentType.BROWSER)
+    def __init__(self, session_id: Optional[str] = None):
+        super().__init__("browser", AgentType.BROWSER)
 
-        # Session Manager (optional, for checkpoint isolation)
-        self.session = session
+        self._session_id = session_id
 
-        # 1. Load Configuration & Prompts
-        self.settings = BrowserAgentSettings.load_from_yaml(
-            "/browser/config/setting.yaml"
-        )
-        self.prompts = BrowserPrompts.load_from_yaml(
-            "/browser/config/prompt.yaml"
-        )
+        # 1. Load Configuration & Prompts from agents/browser/config/
+        config_dir = Path(__file__).parent.parent / "config"
+        setting_path = config_dir / "setting.yaml"
+        prompt_path = config_dir / "prompt.yaml"
+
+        try:
+            self.settings = BrowserAgentSettings.load_from_yaml(str(setting_path))
+            self.prompts = BrowserPrompts.load_from_yaml(str(prompt_path))
+        except FileNotFoundError:
+            log.warning("Browser config files not found, using defaults")
+            self.settings = None
+            self.prompts = None
 
         # 2. Infrastructure (Lazy Load)
-        self.browser_manager = BrowserManager(self.settings)
+        if self.settings:
+            self.browser_manager = BrowserManager(self.settings)
+        else:
+            self.browser_manager = None
 
-        # 3. Intelligence
-        main_model = resolve_model(self.settings.perception.model_name)
+        # 3. Intelligence — resolve models from global config
+        main_model_name = "gemini/gemini-2.0-flash"
+        vision_model_name = ""
+        if self.settings and self.settings.perception:
+            main_model_name = self.settings.perception.model_name or main_model_name
+            vision_model_name = self.settings.perception.vision_model or ""
+
+        main_model = resolve_model(main_model_name)
         vision_model = resolve_vision_model(
-            local_main_model=self.settings.perception.model_name,
-            local_vision_model=self.settings.perception.vision_model
+            local_main_model=main_model_name,
+            local_vision_model=vision_model_name,
         )
 
         self.llm = LLMClient(
-            model=main_model, 
-            temperature=0, 
+            model=main_model,
+            temperature=0,
+            api_key=self._resolve_api_key(),
             agent_name=self.name,
-            session_id=self.session.session_id if self.session else None
+            session_id=self._session_id,
         )
-        self.llm.set_event_handler(self.emit)
 
         if vision_model == main_model:
             self.vision_llm = self.llm
         else:
             self.vision_llm = LLMClient(
-                model=vision_model, 
-                temperature=0, 
+                model=vision_model,
+                temperature=0,
+                api_key=self._resolve_api_key(),
                 agent_name=f"{self.name}_Vision",
-                session_id=self.session.session_id if self.session else None
+                session_id=self._session_id,
             )
-            self.vision_llm.set_event_handler(self.emit)
 
         self._parser = ActionParser()
 
@@ -369,7 +377,7 @@ class BrowserAgent(BaseAgent):
             try:
                 state = await ctx.perception.capture(ctx.navigator.page)
                 
-                from .browser.state import BrowserTab, DownloadTask
+                from .state import BrowserTab, DownloadTask
                 tabs_data = await ctx.navigator.get_tabs_info()
                 state.tabs = [
                     BrowserTab(page_id=t["index"], title=t["title"], url=t["url"], is_active=t["active"]) 
@@ -595,7 +603,7 @@ class BrowserAgent(BaseAgent):
                 }, feedback
 
             if tool_name == "start_extraction":
-                from .browser.controller.extraction import ExtractionWorkflow
+                from .controller.extraction import ExtractionWorkflow
                 extractor = ExtractionWorkflow(ctx)
                 res = await extractor.execute(
                     instruction=params.get("instruction", ""),

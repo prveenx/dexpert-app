@@ -78,7 +78,7 @@ class LLMClient:
             kwargs["api_base"] = self.api_base
 
         attempts = 0
-        while True:
+        while attempts < 5:
             try:
                 response = await acompletion(**kwargs, timeout=60.0)
 
@@ -90,7 +90,7 @@ class LLMClient:
                     f"LLM [{self.agent_name}] generated {len(content)} chars "
                     f"with model={kwargs['model']}"
                 )
-                return content
+                return str(content)
 
             except Exception as e:
                 attempts += 1
@@ -107,6 +107,8 @@ class LLMClient:
                     ) from e
 
                 await asyncio.sleep(wait_time)
+        
+        raise RuntimeError(f"LLM [{self.agent_name}] failed to generate content")
 
     async def stream(
         self,

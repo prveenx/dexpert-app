@@ -18,9 +18,9 @@ from typing import Optional, Dict, List
 
 from playwright.async_api import Page
 
-from .browser.config.config import BrowserAgentSettings
-from .browser.perception.service import PerceptionEngine
-from .browser.state import BrowserState, DOMNode
+from ..config.config import BrowserAgentSettings
+from .service import PerceptionEngine
+from ..state import BrowserState, DOMNode
 
 log = logging.getLogger(__name__)
 

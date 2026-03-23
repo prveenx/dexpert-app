@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 from typing import Dict, Any, List, Callable, Awaitable, Optional
 
-from .browser.state import BrowserState
+from ..state import BrowserState
 from core.scratchpad import WorkflowPhase
 
 log = logging.getLogger(__name__)

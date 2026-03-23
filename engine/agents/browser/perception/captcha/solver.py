@@ -15,10 +15,10 @@ import io
 from dataclasses import dataclass
 from typing import Optional, Tuple, Any
 
-from .browser.state import BrowserState, DOMNode, BoundingBox
-from .browser.config.config import BrowserAgentSettings
-from .browser.perception.perception import PerceptionPipeline
-from llm.client import LLMClient
+from ...state import BrowserState, DOMNode, BoundingBox
+from ...config.config import BrowserAgentSettings
+from ..perception import PerceptionPipeline
+from core.llm.client import LLMClient
 
 log = logging.getLogger(__name__)
 

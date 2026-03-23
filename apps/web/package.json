@@ -9,28 +9,31 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@dexpert/db": "workspace:*",
+    "@libsql/client": "latest",
+    "argon2": "^0.44.0",
+    "better-auth": "latest",
+    "clsx": "latest",
+    "drizzle-orm": "latest",
+    "jsonwebtoken": "^9.0.2",
+    "lucide-react": "^0.470.0",
     "next": "^15.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "better-auth": "latest",
-    "drizzle-orm": "latest",
-    "@libsql/client": "latest",
-    "lucide-react": "^0.470.0",
-    "clsx": "latest",
-    "tailwind-merge": "latest",
-    "jsonwebtoken": "^9.0.2"
+    "tailwind-merge": "latest"
   },
   "devDependencies": {
-    "drizzle-kit": "latest",
+    "@types/jsonwebtoken": "^9.0.5",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "@types/jsonwebtoken": "^9.0.5",
-    "typescript": "^5.7.0",
-    "tailwindcss": "3.4.17",
-    "postcss": "^8.5.1",
     "autoprefixer": "^10.4.20",
+    "drizzle-kit": "latest",
     "eslint": "^9.0.0",
-    "eslint-config-next": "15.1.0"
+    "eslint-config-next": "15.1.0",
+    "postcss": "^8.5.1",
+    "tailwindcss": "3.4.17",
+    "tsx": "latest",
+    "typescript": "^5.7.0"
   }
 }

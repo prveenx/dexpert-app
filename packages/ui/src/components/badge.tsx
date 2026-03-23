@@ -19,7 +19,7 @@ export const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
             'border border-gray-300 text-gray-700 dark:border-gray-700 dark:text-gray-300': variant === 'outline',
             'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200': variant === 'planner',
             'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200': variant === 'browser',
-            'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200': variant === 'os',
+            'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200': variant === 'os',
           },
           className,
         )}

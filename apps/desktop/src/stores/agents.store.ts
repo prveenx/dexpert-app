@@ -10,7 +10,7 @@ interface AgentStoreState {
 }
 
 interface AgentStoreActions {
-  setAgentStatus: (agentId: AgentId, status: AgentStatus) => void;
+  setAgentStatus: (agentId: AgentId, status: AgentStatus, task?: string | null) => void;
   addToolCall: (toolCall: ToolCall) => void;
   setCurrentTask: (agentId: AgentId, task: string | null) => void;
 }
@@ -28,8 +28,9 @@ export const useAgentsStore = create<AgentStoreState & AgentStoreActions>((set) 
     os: null,
   },
 
-  setAgentStatus: (agentId, status) => set((state) => ({
+  setAgentStatus: (agentId, status, task = null) => set((state) => ({
     agentStatuses: { ...state.agentStatuses, [agentId]: status },
+    currentTasks: { ...state.currentTasks, [agentId]: task || state.currentTasks[agentId] },
   })),
   addToolCall: (toolCall) => set((state) => ({
     toolCallLog: [...state.toolCallLog, toolCall],

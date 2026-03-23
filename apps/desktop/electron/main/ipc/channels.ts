@@ -10,6 +10,7 @@ export const IPC = {
 
   // Auth
   AUTH_GET_TOKEN: 'auth:get-token',
+  AUTH_SET_TOKEN: 'auth:set-token',
   AUTH_CLEAR: 'auth:clear',
   AUTH_SUCCESS: 'auth:success',
 

@@ -10,9 +10,14 @@
     "pnpm": ">=9.0.0"
   },
   "packageManager": "pnpm@9.15.4",
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "engine"
+  ],
   "scripts": {
     "build": "turbo run build",
-    "dev": "turbo run dev --parallel",
+    "dev": "turbo run dev --ui=tui",
     "dev:tui": "python scripts/tui_dev.py",
     "dev:desktop": "turbo run dev --filter=@dexpert/desktop",
     "dev:web": "turbo run dev --filter=@dexpert/web",

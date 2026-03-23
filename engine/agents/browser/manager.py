@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Optional, List, Dict, Any
 
 from playwright.async_api import async_playwright, Playwright, BrowserContext, Page
-from .browser.config.config import BrowserAgentSettings
+from .config.config import BrowserAgentSettings
 
 log = logging.getLogger(__name__)
 

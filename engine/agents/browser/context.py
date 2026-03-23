@@ -3,16 +3,16 @@ from typing import Optional, Any, Callable, Awaitable
 
 from playwright.async_api import Page, BrowserContext
 
-from .browser.config.config import BrowserAgentSettings
-from .browser.perception.perception import PerceptionPipeline
-from .browser.controller.interaction import InteractionController
-from .browser.controller.navigation import NavigationController
-from .browser.tools.registry import BrowserToolRegistry
-from .browser.perception.captcha_handler.solve import CaptchaHandler
-from .browser.core.memory import BrowserMemory
-from .browser.manager import BrowserManager
+from .config.config import BrowserAgentSettings
+from .perception.perception import PerceptionPipeline
+from .controller.interaction import InteractionController
+from .controller.navigation import NavigationController
+from .tools.registry import BrowserToolRegistry
+from .perception.captcha.solver import CaptchaHandler
+from .memory import BrowserMemory
+from .manager import BrowserManager
 from core.scratchpad import Scratchpad
-from llm.client import LLMClient
+from core.llm.client import LLMClient
 
 @dataclass
 class BrowserAgentContext:

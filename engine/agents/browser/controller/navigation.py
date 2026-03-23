@@ -3,7 +3,7 @@ import asyncio
 from typing import List, Optional, Dict, Union
 
 from playwright.async_api import Page, BrowserContext, Frame
-from .browser.state import BrowserState
+from ..state import BrowserState
 
 log = logging.getLogger(__name__)
 

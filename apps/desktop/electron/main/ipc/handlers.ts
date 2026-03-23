@@ -4,6 +4,7 @@
 
 import { ipcMain, shell, app, BrowserWindow } from 'electron';
 import { IPC } from './channels';
+import { TokenStore } from '../auth/token-store';
 
 export function registerIpcHandlers(): void {
   // ── Window Controls ────────────────────────────────
@@ -41,13 +42,19 @@ export function registerIpcHandlers(): void {
   });
 
   // ── Auth ───────────────────────────────────────────
+
   ipcMain.handle(IPC.AUTH_GET_TOKEN, () => {
-    // TODO: Implement keytar integration
-    return null;
+    return TokenStore.get();
+  });
+
+  ipcMain.handle(IPC.AUTH_SET_TOKEN, (_event, token: string) => {
+    TokenStore.save(token);
+    app.emit('auth-success');
+    return true;
   });
 
   ipcMain.handle(IPC.AUTH_CLEAR, () => {
-    // TODO: Implement keytar integration
+    TokenStore.clear();
     return;
   });
 }

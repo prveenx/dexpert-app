@@ -7,8 +7,8 @@ Uses the EngineEvent protocol for all UI updates.
 """
 
 import json
-import asyncio
 import logging
+import jwt
 from typing import Optional
 
 from fastapi import WebSocket, WebSocketDisconnect
@@ -22,29 +22,65 @@ from core.protocol.events import (
     ErrorEvent,
     PongEvent,
 )
-from core.config.settings import DexpertSettings
-from agents.planner.agent import PlannerAgent
+from core.config.settings import get_settings
+from core.memory.state_manager import StateManager
 
 log = logging.getLogger(__name__)
 
-manager = ConnectionManager()
-_planner: Optional[PlannerAgent] = None
+ws_manager = ConnectionManager()
+
+# Cache for session-specific agents
+_session_planners = {}
+_browser = None
+_os_agent = None
+
+def _get_session_planner(session_id: str):
+    """Get or create a Planner agent for a specific session."""
+    if session_id not in _session_planners:
+        from agents.planner.agent import PlannerAgent
+        state_mgr = StateManager(session_id=session_id)
+        _session_planners[session_id] = PlannerAgent(state_manager=state_mgr)
+    return _session_planners[session_id]
 
 
-def _get_planner() -> PlannerAgent:
-    """Lazy-init the Planner agent."""
-    global _planner
-    if _planner is None:
-        from memory.state_manager import StateManager
-        manager = StateManager(session_id="global")
-        _planner = PlannerAgent(state_manager=manager)
-    return _planner
+def _get_browser():
+    """Lazy-init the Browser agent."""
+    global _browser
+    if _browser is None:
+        from agents.browser.agent import BrowserAgent
+        _browser = BrowserAgent()
+    return _browser
+
+
+def _get_os_agent():
+    """Lazy-init the OS agent."""
+    global _os_agent
+    if _os_agent is None:
+        from agents.os.agent import OSAgent
+        _os_agent = OSAgent()
+    return _os_agent
 
 
 async def websocket_endpoint(websocket: WebSocket):
     """Handle WebSocket connections from Electron main process."""
-    await manager.connect(websocket)
-    log.info("WebSocket client connected")
+    # Auth verification
+    token = websocket.query_params.get("token") or websocket.headers.get("authorization")
+    if token and " " in token:
+        token = token.split(" ")[1]
+    
+    if not token:
+        await websocket.close(code=4001, reason="Missing authentication token")
+        return
+
+    try:
+        settings = get_settings()
+        jwt.decode(token, settings.auth_secret, algorithms=["HS256"])
+    except Exception as e:
+        await websocket.close(code=4002, reason=f"Invalid token: {str(e)}")
+        return
+
+    await ws_manager.connect(websocket)
+    log.info("WebSocket client connected (Authenticated)")
     try:
         while True:
             data = await websocket.receive_text()
@@ -59,11 +95,11 @@ async def websocket_endpoint(websocket: WebSocket):
                     ).model_dump()
                 )
     except WebSocketDisconnect:
-        manager.disconnect(websocket)
+        ws_manager.disconnect(websocket)
         log.info("WebSocket client disconnected")
     except Exception as e:
         log.error(f"WebSocket processing error: {e}", exc_info=True)
-        manager.disconnect(websocket)
+        ws_manager.disconnect(websocket)
 
 
 async def handle_message(websocket: WebSocket, message: dict):
@@ -79,13 +115,24 @@ async def handle_message(websocket: WebSocket, message: dict):
         await handle_chat(websocket, message)
 
     elif msg_type == "task":
-        # MVP: Task currently routes through conversational planner
-        # In Phase 2, this will use task-specific logic (execute)
-        await handle_chat(websocket, message)
+        target = message.get("targetAgent") or message.get("payload", {}).get("targetAgent")
+        if target == "browser":
+            await handle_agent_task(websocket, message, _get_browser)
+        elif target == "os":
+            await handle_agent_task(websocket, message, _get_os_agent)
+        else:
+            await handle_chat(websocket, message)
 
     elif msg_type == "cancel":
-        # Cancellation support will be added in Phase 2
-        pass
+        task_id = message.get("taskId")
+        log.info(f"Cancel requested for task: {task_id}")
+        await websocket.send_json(
+            DoneEvent(
+                sessionId=message.get("sessionId", "default"),
+                taskId=task_id,
+                success=False,
+            ).model_dump()
+        )
 
     else:
         await websocket.send_json(
@@ -98,7 +145,8 @@ async def handle_message(websocket: WebSocket, message: dict):
 
 async def handle_chat(websocket: WebSocket, message: dict):
     """
-    Handle a chat/task message — stream full EngineEvent protocol.
+    Handle a chat message — stream full EngineEvent protocol.
+    Routes through the Planner agent for conversational AI.
     """
     session_id = message.get("sessionId", "default")
     content = message.get("content") or message.get("payload", {}).get("goal", "")
@@ -114,13 +162,25 @@ async def handle_chat(websocket: WebSocket, message: dict):
         )
         return
 
-    planner = _get_planner()
+    # Ensure session exists in DB
+    from core.session.manager import SessionManager
+    session_mgr = SessionManager()
+    
+    # Simple check/create logic for "first message" session creation
+    existing = await session_mgr.get(session_id)
+    if not existing:
+        log.info(f"Creating new session on first message: {session_id}")
+        await session_mgr.db.create_session(
+            session_id=session_id,
+            title=content[:30] + "..." if len(content) > 30 else content,
+            user_id="default" # Could be extracted from JWT if needed
+        )
+
+    planner = _get_session_planner(session_id)
 
     try:
-        # Simple history — MVP for Phase 1
         messages = [{"role": "user", "content": content}]
 
-        # Planner now yields EngineEvent objects directly!
         async for event in planner.stream_chat(
             messages=messages,
             session_id=session_id,
@@ -128,7 +188,6 @@ async def handle_chat(websocket: WebSocket, message: dict):
         ):
             await websocket.send_json(event.model_dump())
 
-        # Finalize the turn in UI
         await websocket.send_json(
             DoneEvent(
                 sessionId=session_id,
@@ -148,6 +207,113 @@ async def handle_chat(websocket: WebSocket, message: dict):
         await websocket.send_json(
             DoneEvent(
                 sessionId=session_id,
+                success=False,
+            ).model_dump()
+        )
+
+
+async def handle_agent_task(websocket: WebSocket, message: dict, agent_factory):
+    """
+    Handle a task message — routes to a specific specialist agent.
+    Wraps the agent's process() method with event streaming.
+    """
+    session_id = message.get("sessionId", "default")
+    goal = message.get("content") or message.get("payload", {}).get("goal", "")
+    task_id = message.get("taskId", "")
+
+    if not goal.strip():
+        await websocket.send_json(
+            ErrorEvent(
+                sessionId=session_id,
+                code="VALIDATION",
+                message="Task goal is empty",
+            ).model_dump()
+        )
+        return
+
+    agent = agent_factory()
+
+    # Wire event handler to stream events to WebSocket
+    async def event_handler(event_type: str, content: str):
+        """Bridge between agent.emit() and WebSocket."""
+        event_map = {
+            "THINK": ThinkingEvent(
+                sessionId=session_id, agentId=agent.agent_id, content=content,
+            ),
+            "ACTION": ThinkingEvent(
+                sessionId=session_id, agentId=agent.agent_id,
+                content=f"🔧 {content}",
+            ),
+            "STATUS": AgentStatusEvent(
+                agentId=agent.agent_id, status="running", action=content,
+            ),
+            "ERROR": ErrorEvent(
+                sessionId=session_id, code="AGENT_ERROR", message=content,
+            ),
+            "TOOL_OUTPUT": ThinkingEvent(
+                sessionId=session_id, agentId=agent.agent_id,
+                content=f"📋 {content}",
+            ),
+        }
+        event = event_map.get(event_type)
+        if event:
+            await websocket.send_json(event.model_dump())
+
+    agent.set_event_handler(event_handler)
+
+    try:
+        from core.protocol.messages import (
+            Message, AgentType, MessageType, TaskFrame,
+        )
+
+        task_frame = TaskFrame(
+            task_id=task_id,
+            goal=goal,
+            context=message.get("context", {}),
+        )
+
+        msg = Message.create(
+            sender=AgentType.PLANNER,
+            receiver=agent.agent_type,
+            msg_type=MessageType.TASK,
+            content=task_frame,
+        )
+
+        result = await agent.process(msg)
+
+        # Stream the result back
+        result_content = str(result.content)
+        await websocket.send_json(
+            ResponseEvent(
+                sessionId=session_id,
+                agentId=agent.agent_id,
+                content=result_content,
+                isStreaming=False,
+            ).model_dump()
+        )
+
+        success = result.type != MessageType.ERROR
+        await websocket.send_json(
+            DoneEvent(
+                sessionId=session_id,
+                taskId=task_id,
+                success=success,
+            ).model_dump()
+        )
+
+    except Exception as e:
+        log.error(f"Agent task error: {e}", exc_info=True)
+        await websocket.send_json(
+            ErrorEvent(
+                sessionId=session_id,
+                code="AGENT_ERROR",
+                message=str(e),
+            ).model_dump()
+        )
+        await websocket.send_json(
+            DoneEvent(
+                sessionId=session_id,
+                taskId=task_id,
                 success=False,
             ).model_dump()
         )

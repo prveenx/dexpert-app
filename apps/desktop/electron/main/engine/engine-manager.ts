@@ -33,24 +33,29 @@ export class EngineManager extends EventEmitter {
       cwd: engineDir,
       env: {
         ...process.env,
-        ENGINE_PORT: String(this.port),
-        ENGINE_HOST: '127.0.0.1',
+        DEXPERT_ENGINE_PORT: String(this.port),
+        DEXPERT_ENGINE_HOST: '127.0.0.1',
         PYTHONUNBUFFERED: '1',
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
-    this.process.stdout?.on('data', (data: Buffer) => {
+    const checkReady = (data: Buffer) => {
       const text = data.toString();
-      console.log('[Engine]', text.trim());
       if (text.includes('Application startup complete')) {
         this.restartCount = 0;
         this.emit('ready', this.port);
       }
+    };
+
+    this.process.stdout?.on('data', (data: Buffer) => {
+      console.log('[Engine]', data.toString().trim());
+      checkReady(data);
     });
 
     this.process.stderr?.on('data', (data: Buffer) => {
       console.error('[Engine:err]', data.toString().trim());
+      checkReady(data);
     });
 
     this.process.on('exit', (code) => {

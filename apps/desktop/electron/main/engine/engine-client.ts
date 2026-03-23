@@ -13,11 +13,16 @@ export class EngineClient extends EventEmitter {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectDelay: number = 1000;
   private maxReconnectDelay: number = 16000;
+  private token: string | null = null;
   private isConnecting: boolean = false;
 
-  constructor(port: number) {
+  constructor(port: number, token?: string | null) {
     super();
+    this.token = token || null;
     this.url = `ws://127.0.0.1:${port}/ws`;
+    if (this.token) {
+      this.url += `?token=${this.token}`;
+    }
   }
 
   connect(): void {
@@ -85,6 +90,20 @@ export class EngineClient extends EventEmitter {
     if (this.ws) {
       this.ws.close();
       this.ws = null;
+    }
+  }
+
+  setToken(token: string): void {
+    this.token = token;
+    // Update URL
+    const baseUrl = this.url.split('?')[0];
+    this.url = `${baseUrl}?token=${token}`;
+    
+    // Reconnect if currently connected or connecting with old/no token
+    if (this.ws) {
+      console.log('[EngineClient] Token updated, reconnecting...');
+      this.disconnect();
+      this.connect();
     }
   }
 

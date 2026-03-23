@@ -16,7 +16,7 @@ from typing import Optional, Dict, Any
 log = logging.getLogger(__name__)
 
 
-class CacheManager:
+class PromptCache:
     """Prompt caching manager for LLM providers."""
 
     def __init__(self):

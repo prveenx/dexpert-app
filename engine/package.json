@@ -1,0 +1,11 @@
+{
+  "name": "@dexpert/engine",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "python main.py"
+  },
+  "dependencies": {
+    "dotenv": "^16.0.0"
+  }
+}

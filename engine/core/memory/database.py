@@ -45,7 +45,8 @@ class Database:
 
     async def _init_schema(self) -> None:
         """Create tables if they don't exist."""
-        assert self._conn is not None
+        if self._conn is None:
+            raise RuntimeError("Database connection not established.")
 
         await self._conn.executescript("""
             CREATE TABLE IF NOT EXISTS knowledge (
@@ -73,6 +74,16 @@ class Database:
                 timestamp TEXT
             );
 
+            CREATE TABLE IF NOT EXISTS sessions (
+                id TEXT PRIMARY KEY,
+                title TEXT,
+                user_id TEXT,
+                sync_id TEXT,
+                created_at TEXT,
+                updated_at TEXT,
+                is_active INTEGER DEFAULT 1
+            );
+
             CREATE TABLE IF NOT EXISTS workflow_state (
                 task_id TEXT PRIMARY KEY,
                 agent TEXT,
@@ -85,7 +96,8 @@ class Database:
     async def _get_conn(self) -> aiosqlite.Connection:
         if self._conn is None:
             await self.connect()
-        return self._conn  # type: ignore
+        assert self._conn is not None
+        return self._conn
 
     # ─── Knowledge (Facts) ───────────────────────────────────
 
@@ -111,6 +123,75 @@ class Database:
     async def clear_all_facts(self) -> None:
         conn = await self._get_conn()
         await conn.execute("DELETE FROM knowledge")
+        await conn.commit()
+
+    # ─── Sessions ────────────────────────────────────────────
+
+    async def create_session(self, session_id: str, title: str, user_id: str = "default") -> None:
+        conn = await self._get_conn()
+        now = datetime.now().isoformat()
+        await conn.execute(
+            "INSERT INTO sessions (id, title, user_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+            (session_id, title, user_id, now, now),
+        )
+        await conn.commit()
+
+    async def get_session(self, session_id: str) -> Optional[Dict[str, Any]]:
+        conn = await self._get_conn()
+        async with conn.execute(
+            "SELECT id, title, user_id, created_at, updated_at, is_active FROM sessions WHERE id = ?",
+            (session_id,),
+        ) as cursor:
+            row = await cursor.fetchone()
+        if row:
+            return {
+                "id": row[0],
+                "title": row[1],
+                "user_id": row[2],
+                "created_at": row[3],
+                "updated_at": row[4],
+                "is_active": bool(row[5]),
+            }
+        return None
+
+    async def list_sessions(self, user_id: Optional[str] = None, limit: int = 50) -> List[Dict[str, Any]]:
+        conn = await self._get_conn()
+        query = "SELECT id, title, user_id, created_at, updated_at, is_active FROM sessions"
+        params: List[Any] = []
+        
+        if user_id:
+            query += " WHERE user_id = ?"
+            params.append(user_id)
+            
+        query += " ORDER BY updated_at DESC LIMIT ?"
+        params.append(limit)
+
+        async with conn.execute(query, tuple(params)) as cursor:
+            rows = await cursor.fetchall()
+        return [
+            {
+                "id": r[0],
+                "title": r[1],
+                "user_id": r[2],
+                "created_at": r[3],
+                "updated_at": r[4],
+                "is_active": bool(r[5]),
+            }
+            for r in rows
+        ]
+
+    async def delete_session(self, session_id: str) -> None:
+        conn = await self._get_conn()
+        await conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+        await conn.execute("DELETE FROM interaction_log WHERE session_id = ?", (session_id,))
+        await conn.commit()
+
+    async def update_session_timestamp(self, session_id: str) -> None:
+        conn = await self._get_conn()
+        await conn.execute(
+            "UPDATE sessions SET updated_at = ? WHERE id = ?",
+            (datetime.now().isoformat(), session_id),
+        )
         await conn.commit()
 
     # ─── Interaction Log ─────────────────────────────────────
@@ -204,7 +285,7 @@ class Database:
 
     async def close(self) -> None:
         async with self._lock:
-            if self._conn:
+            if self._conn is not None:
                 await self._conn.close()
                 self._conn = None
                 log.info("Database connection closed")

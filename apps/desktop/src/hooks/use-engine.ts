@@ -31,7 +31,7 @@ export function useEngine(): void {
     const unsubscribe = window.dexpert.engine.onEvent((event: EngineEvent) => {
       switch (event.type) {
         case 'agent_status':
-          setAgentStatus(event.agentId, event.status);
+          setAgentStatus(event.agentId, event.status, event.action);
           break;
 
         case 'tool_call':

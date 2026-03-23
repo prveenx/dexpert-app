@@ -5,7 +5,8 @@ WebSocket event schemas matching @dexpert/types EngineEvent.
 These are the JSON payloads the engine sends TO the renderer via WebSocket.
 """
 
-from typing import Optional, Any, Dict
+from __future__ import annotations
+from typing import Optional, Any, Dict, Union
 from pydantic import BaseModel
 
 
@@ -88,6 +89,7 @@ class PongEvent(BaseModel):
     type: str = "pong"
     timestamp: int
 
+
 class QuestionEvent(BaseModel):
     """Agent needs user input — shows inline question in chat."""
     type: str = "question"
@@ -97,8 +99,34 @@ class QuestionEvent(BaseModel):
     taskId: Optional[str] = None
 
 
+class ScreenshotEvent(BaseModel):
+    """Browser screenshot frame — displayed in BrowserPreview."""
+    type: str = "screenshot"
+    sessionId: str
+    agentId: str
+    imageBase64: str
+    url: str = ""
+
+
 class SystemNoticeEvent(BaseModel):
     """System-level notice — displayed as a SystemNotice in the chat."""
     type: str = "system_notice"
     sessionId: str
     content: str
+
+
+# Union type for all engine events
+EngineEvent = Union[
+    ThinkingEvent,
+    ResponseEvent,
+    ToolCallEvent,
+    ToolResultEvent,
+    AgentStatusEvent,
+    DoneEvent,
+    ErrorEvent,
+    TokenUsageEvent,
+    PongEvent,
+    QuestionEvent,
+    ScreenshotEvent,
+    SystemNoticeEvent,
+]

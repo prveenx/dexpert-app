@@ -1,48 +1,48 @@
-"""
-Session Manager — lifecycle management for sessions.
-"""
-
-from typing import Optional
+from typing import Optional, List, Dict, Any
 import uuid
 from datetime import datetime
+from core.memory.database import Database
 
 
 class SessionManager:
-    """Manages session lifecycle: create, resume, pause, archive."""
+    """Manages session lifecycle with persistent SQLite backing."""
 
     def __init__(self):
-        self.sessions: dict[str, dict] = {}
+        self.db = Database()
 
-    async def create(self, title: str = "New Session") -> dict:
+    async def create(self, user_id: str, title: str = "New Session") -> Dict[str, Any]:
         session_id = str(uuid.uuid4())
-        now = datetime.utcnow().isoformat()
-        session = {
+        await self.db.create_session(session_id, title, user_id=user_id)
+        
+        # Return a consistent schema
+        return {
             "id": session_id,
             "title": title,
-            "createdAt": now,
-            "updatedAt": now,
             "isActive": True,
-            "messageCount": 0,
-            "messages": [],
+            "messages": []
         }
-        self.sessions[session_id] = session
+
+    async def get(self, session_id: str) -> Optional[Dict[str, Any]]:
+        session = await self.db.get_session(session_id)
+        if not session:
+            return None
+        
+        # Load messages
+        messages = await self.db.get_recent_interactions(session_id, limit=100)
+        session["messages"] = messages
+        session["messageCount"] = len(messages)
         return session
 
-    async def get(self, session_id: str) -> Optional[dict]:
-        return self.sessions.get(session_id)
-
-    async def list_all(self) -> list[dict]:
-        return list(self.sessions.values())
+    async def list_all(self, user_id: str) -> List[Dict[str, Any]]:
+        return await self.db.list_sessions(user_id=user_id)
 
     async def delete(self, session_id: str) -> bool:
-        if session_id in self.sessions:
-            del self.sessions[session_id]
+        session = await self.db.get_session(session_id)
+        if session:
+            await self.db.delete_session(session_id)
             return True
         return False
 
-    async def add_message(self, session_id: str, message: dict) -> None:
-        session = self.sessions.get(session_id)
-        if session:
-            session["messages"].append(message)
-            session["messageCount"] = len(session["messages"])
-            session["updatedAt"] = datetime.utcnow().isoformat()
+    async def add_message(self, session_id: str, role: str, content: str, sender: str = "system") -> None:
+        await self.db.log_interaction(session_id, role, sender, content)
+        await self.db.update_session_timestamp(session_id)

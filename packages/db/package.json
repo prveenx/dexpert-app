@@ -1,20 +1,22 @@
 {
   "name": "@dexpert/db",
   "version": "1.0.0",
-  "description": "Prisma Database package",
+  "description": "Drizzle Database package",
   "main": "index.ts",
   "scripts": {
-    "db:generate": "npx prisma generate",
-    "db:push": "npx prisma db push",
-    "db:seed": "npx ts-node script/seed.ts"
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio",
+    "db:seed": "tsx script/seed.ts"
   },
   "dependencies": {
-    "@prisma/client": "^6.0.0"
+    "drizzle-orm": "latest",
+    "@libsql/client": "latest",
+    "dotenv": "latest"
   },
   "devDependencies": {
-    "prisma": "^6.0.0",
+    "drizzle-kit": "latest",
     "typescript": "^5.0.0",
-    "ts-node": "^10.0.0",
+    "tsx": "latest",
     "@types/node": "^20.0.0"
   }
 }

@@ -18,9 +18,18 @@ export default function DesktopRedirect() {
       // Let's call /api/desktop-token to get a signed JWT
       fetch("/api/desktop-token")
         .then(res => res.json())
-        .then(data => {
+        .then(async data => {
           if (data.token) {
-            window.location.href = `dexpert://token?jwt=${data.token}`;
+            // Check if we are inside electron via the bridge
+            const dexpert = (window as any).dexpert;
+            if (dexpert?.auth?.setToken) {
+              console.log("Directing token to Electron bridge...");
+              await dexpert.auth.setToken(data.token);
+              // The main process will handle window swap, but we can also trigger a local event
+            } else {
+              console.log("Using protocol redirect for auth...");
+              window.location.href = `dexpert://token?jwt=${data.token}`;
+            }
           }
         });
     }

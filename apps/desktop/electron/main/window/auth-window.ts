@@ -2,6 +2,9 @@ import { BrowserWindow, shell } from 'electron';
 import { join } from 'path';
 import { is } from '@electron-toolkit/utils';
 
+import { handleDeepLink } from '../auth/protocol-handler';
+import { createMainWindow } from './main-window';
+
 export function createAuthWindow(): BrowserWindow {
   const authWindow = new BrowserWindow({
     width: 1200,
@@ -30,6 +33,30 @@ export function createAuthWindow(): BrowserWindow {
   authWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
     return { action: 'deny' };
+  });
+
+  // Intercept deep link navigation internally
+
+  authWindow.webContents.on('will-navigate', (event, url) => {
+    if (url.startsWith('dexpert://')) {
+      event.preventDefault();
+      handleDeepLink(url, null); // window is null here as we are about to close this one
+      
+      // Swap windows
+      authWindow.close();
+      createMainWindow();
+    }
+  });
+
+  authWindow.webContents.on('will-redirect', (event, url) => {
+    if (url.startsWith('dexpert://')) {
+      event.preventDefault();
+      handleDeepLink(url, null);
+      
+      // Swap windows
+      authWindow.close();
+      createMainWindow();
+    }
   });
 
   // Load the external Web Application route for Auth

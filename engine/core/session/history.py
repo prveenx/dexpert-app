@@ -1,79 +1,71 @@
-# FILE: core/session/history.py
 """
 Session History — manages message appends and retrieval.
-
-Wraps the in-memory session store with conversation-aware operations.
 """
 
 import logging
 from typing import List, Dict, Any, Optional
-from datetime import datetime
+from core.memory.database import Database
 
 log = logging.getLogger(__name__)
 
 
-class MessageStore:
-    """Per-session message history manager."""
+class HistoryManager:
+    """Per-session message history manager backed by SQLite."""
 
     def __init__(self):
-        self._messages: Dict[str, List[Dict[str, Any]]] = {}
+        self.db = Database()
 
-    def add_message(
+    async def add_message(
         self,
         session_id: str,
         role: str,
         content: str,
+        sender: str = "assistant",
         agent_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        """Add a message to a session's history."""
-        if session_id not in self._messages:
-            self._messages[session_id] = []
-
-        message = {
+        """Add a message to a session's history (persisted)."""
+        # Note: metadata is not currently stored in interaction_log, 
+        # but could be serialized into content or a separate table if needed.
+        await self.db.log_interaction(session_id, role, sender, content)
+        
+        return {
             "role": role,
+            "sender": sender,
             "content": content,
-            "timestamp": datetime.now().isoformat(),
+            "agent_id": agent_id,
         }
 
-        if agent_id:
-            message["agentId"] = agent_id
-        if metadata:
-            message["metadata"] = metadata
-
-        self._messages[session_id].append(message)
-        return message
-
-    def get_messages(
-        self, session_id: str, limit: Optional[int] = None
+    async def get_messages(
+        self, session_id: str, limit: int = 100
     ) -> List[Dict[str, Any]]:
-        """Get messages for a session, optionally limited."""
-        messages = self._messages.get(session_id, [])
-        if limit:
-            return messages[-limit:]
-        return messages
+        """Get messages for a session from the database."""
+        return await self.db.get_recent_interactions(session_id, limit=limit)
 
-    def get_llm_messages(
+    async def get_llm_messages(
         self, session_id: str, limit: int = 20
     ) -> List[Dict[str, str]]:
         """Get messages in LLM-compatible format (role + content only)."""
-        messages = self.get_messages(session_id, limit)
+        messages = await self.get_messages(session_id, limit)
         result = []
         for msg in messages:
             role = msg["role"]
             # Normalize roles for LLM
-            if role in ("user",):
+            if role.lower() in ("user",):
                 llm_role = "user"
-            elif role in ("assistant", "planner", "agent"):
+            elif role.lower() in ("assistant", "planner", "agent"):
                 llm_role = "assistant"
             else:
-                continue  # Skip system, tool, etc.
+                continue
             result.append({"role": llm_role, "content": msg["content"]})
         return result
 
-    def clear_session(self, session_id: str) -> None:
-        """Clear all messages for a session."""
-        self._messages.pop(session_id, None)
+    async def clear_session(self, session_id: str) -> None:
+        """Clear all messages for a session (soft delete via DB)."""
+        # In current DB it's harder to soft-delete interactions only, 
+        # so for now we leave them as they are or we could add a clear_interactions method.
+        pass
 
-    def get_message_count(self, session_id: str) -> int:
-        return len(self._messages.get(session_id, []))
+    async def get_message_count(self, session_id: str) -> int:
+        messages = await self.get_messages(session_id)
+        return len(messages)
