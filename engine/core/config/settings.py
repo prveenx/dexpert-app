@@ -1,18 +1,14 @@
-"""
-Dexpert Engine Settings — Pydantic-powered configuration.
-
-Provides:
-  - DexpertSettings: Global engine configuration
-  - AgentConfig: Per-agent model/execution settings
-  - resolve_model() / resolve_vision_model(): Model resolution helpers
-"""
-
+# FILE: engine/core/config/settings.py
 import os
 import platform
+import json
+import logging
 from typing import Optional
 from pathlib import Path
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, AliasChoices
 from pydantic_settings import BaseSettings
+
+log = logging.getLogger(__name__)
 
 def get_appdata_dir() -> str:
     system = platform.system()
@@ -51,10 +47,10 @@ class DexpertSettings(BaseSettings):
     session_dir: str = os.path.join(APP_DIR, "sessions")
 
     # LLM API Keys
-    google_ai_api_key: Optional[str] = None
-    groq_api_key: Optional[str] = None
-    anthropic_api_key: Optional[str] = None
+    google_api_key: Optional[str] = None
     openai_api_key: Optional[str] = None
+    anthropic_api_key: Optional[str] = None
+    groq_api_key: Optional[str] = None
     nvidia_nim_api_key: Optional[str] = None
 
     # Default model
@@ -73,42 +69,82 @@ class DexpertSettings(BaseSettings):
     # Memory & Personalization
     enable_personalization: bool = True
     # Auth
-    auth_secret: str = Field(default="supersecretbetterauthsecret", validation_alias="BETTER_AUTH_SECRET")
+    better_auth_secret: str = "supersecretbetterauthsecret"
 
     model_config = {
         "env_prefix": "DEXPERT_",
-        "env_file": ".env",
+        "env_file": [
+            ".env",
+            os.path.join(os.path.dirname(__file__), "../../../.env")
+        ],
         "extra": "ignore"
     }
+
+    def save_user_config(self):
+        """Persist user-mutable settings to disk so they survive restarts."""
+        os.makedirs(self.runtime_dir, exist_ok=True)
+        config_path = os.path.join(self.runtime_dir, "user_config.json")
+        try:
+            data = {
+                "google_api_key": self.google_api_key,
+                "openai_api_key": self.openai_api_key,
+                "anthropic_api_key": self.anthropic_api_key,
+                "groq_api_key": self.groq_api_key,
+                "default_model": self.default_model,
+                "global_model_override": self.global_model_override,
+                "log_level": self.log_level,
+                "enable_personalization": self.enable_personalization,
+            }
+            with open(config_path, "w") as f:
+                json.dump(data, f, indent=2)
+            log.info("User configuration saved successfully.")
+        except Exception as e:
+            log.error(f"Failed to save user config: {e}")
+
+    def apply_user_config(self):
+        """Load user-mutable settings from disk."""
+        config_path = os.path.join(self.runtime_dir, "user_config.json")
+        if os.path.exists(config_path):
+            try:
+                with open(config_path, "r") as f:
+                    data = json.load(f)
+                if data.get("google_api_key"): self.google_api_key = data["google_api_key"]
+                if data.get("openai_api_key"): self.openai_api_key = data["openai_api_key"]
+                if data.get("anthropic_api_key"): self.anthropic_api_key = data["anthropic_api_key"]
+                if data.get("groq_api_key"): self.groq_api_key = data["groq_api_key"]
+                if data.get("default_model"): self.default_model = data["default_model"]
+                if data.get("global_model_override"): self.global_model_override = data["global_model_override"]
+                if data.get("log_level"): self.log_level = data["log_level"]
+                if "enable_personalization" in data: self.enable_personalization = data["enable_personalization"]
+            except Exception as e:
+                log.error(f"Failed to apply user config: {e}")
 
 
 # ── Global singleton ──────────────────────────────────────
 
 _settings: Optional[DexpertSettings] = None
 
-
 def get_settings() -> DexpertSettings:
     """Get or create the global settings singleton."""
     global _settings
     if _settings is None:
         _settings = DexpertSettings()
+        _settings.apply_user_config()
     assert _settings is not None
     return _settings
 
-
 def reload_settings() -> DexpertSettings:
-    """Force reload settings from environment."""
+    """Force reload settings from environment and disk."""
     global _settings
     _settings = DexpertSettings()
+    _settings.apply_user_config()
     return _settings
-
 
 # ── Model Resolution Helpers ──────────────────────────────
 
 def resolve_model(local_model: str) -> str:
     """
     Resolve which model to use, respecting global override.
-    
     Priority:
       1. Global override (DexpertSettings.global_model_override)
       2. Agent's local model setting
@@ -119,20 +155,13 @@ def resolve_model(local_model: str) -> str:
     
     # Ensure the model string has a provider prefix for LiteLLM
     if "/" not in local_model:
-        # Default to gemini provider if no prefix
         return f"gemini/{local_model}"
     return local_model
-
 
 def resolve_vision_model(
     local_main_model: str,
     local_vision_model: Optional[str] = None,
 ) -> str:
-    """
-    Resolve which vision model to use.
-
-    Falls back to main model if no dedicated vision model is set.
-    """
     if local_vision_model and local_vision_model.strip():
         return resolve_model(local_vision_model)
     return resolve_model(local_main_model)

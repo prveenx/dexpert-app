@@ -8,7 +8,7 @@ build/
 out/
 .next/
 *.tsbuildinfo
-.pcagent_browser_profile/
+*.pcagent_browser_profile/
 
 # Turbo
 .turbo/

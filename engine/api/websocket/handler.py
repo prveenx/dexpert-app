@@ -75,7 +75,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
     try:
         settings = get_settings()
-        jwt.decode(token, settings.auth_secret, algorithms=["HS256"])
+        jwt.decode(token, settings.better_auth_secret, algorithms=["HS256"])
     except Exception as e:
         await websocket.close(code=4002, reason=f"Invalid token: {str(e)}")
         return

@@ -69,6 +69,19 @@ export const useSessionStore = create<SessionStoreState & SessionStoreActions>()
     }),
     {
       name: 'dexpert-session-storage',
+      storage: {
+        getItem: async (name: string) => {
+          const data = await (window as any).dexpert.storage.getSessions();
+          return { state: data };
+        },
+        setItem: async (name: string, value: any) => {
+          // value is already the wrapped state from zustand
+          await (window as any).dexpert.storage.setSessions(value.state);
+        },
+        removeItem: async (name: string) => {
+          // Optional: handle removal
+        },
+      } as any,
     }
   )
 );

@@ -1,12 +1,6 @@
-# FILE: core/llm/client.py
+# FILE: engine/core/llm/client.py
 """
 Production LLM Client powered by LiteLLM.
-
-Adapted from PCAgent MAF prototype. Provides:
-  - Async generation with retries
-  - Streaming support for real-time responses
-  - Provider-agnostic caching (Gemini/Anthropic/OpenAI)
-  - Multimodal (Vision) payload construction
 """
 
 import os
@@ -17,9 +11,9 @@ import logging
 from typing import List, Dict, Optional, Any, Union, Callable, Awaitable, AsyncGenerator
 
 import litellm
+import litellm.exceptions
 from litellm import acompletion
 
-# Silence LiteLLM verbose logging
 litellm.suppress_debug_info = True
 litellm.set_verbose = False
 litellm.drop_params = True
@@ -92,6 +86,11 @@ class LLMClient:
                 )
                 return str(content)
 
+            except litellm.exceptions.AuthenticationError as e:
+                msg = f"API Key missing or invalid for model '{kwargs['model']}'. Please update your API keys in the Settings panel."
+                log.error(f"[{self.agent_name}] {msg}")
+                raise RuntimeError(msg) from e
+                
             except Exception as e:
                 attempts += 1
                 wait_time = min(attempts * 5, 30)
@@ -108,7 +107,7 @@ class LLMClient:
 
                 await asyncio.sleep(wait_time)
         
-        raise RuntimeError(f"LLM [{self.agent_name}] failed to generate content")
+        raise RuntimeError(f"LLM[{self.agent_name}] failed to generate content")
 
     async def stream(
         self,
@@ -137,7 +136,6 @@ class LLMClient:
         attempts = 0
         while True:
             try:
-                print(f"DEBUG: LLMClient calling LiteLLM.acompletion with model={kwargs['model']}")
                 response = await acompletion(**kwargs, timeout=60.0)
 
                 async for chunk in response:
@@ -145,8 +143,13 @@ class LLMClient:
                     if hasattr(delta, "content") and delta.content:
                         yield delta.content
 
-                return  # Successful stream complete
+                return
 
+            except litellm.exceptions.AuthenticationError as e:
+                msg = f"API Key missing or invalid for model '{kwargs['model']}'. Please update your API keys in the Settings panel."
+                log.error(f"[{self.agent_name}] {msg}")
+                raise RuntimeError(msg) from e
+                
             except Exception as e:
                 attempts += 1
                 wait_time = min(attempts * 5, 30)
@@ -174,7 +177,7 @@ class LLMClient:
         messages = [
             {
                 "role": "user",
-                "content": [
+                "content":[
                     {"type": "text", "text": prompt},
                     {
                         "type": "image_url",
@@ -196,7 +199,7 @@ class LLMClient:
         self, system: Optional[str], messages: List[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
         """Build the message payload with optional system prompt."""
-        payload = []
+        payload =[]
         if system:
             payload.append({"role": "system", "content": system})
         payload.extend(messages)

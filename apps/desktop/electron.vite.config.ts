@@ -4,7 +4,9 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()],
+    plugins: [externalizeDepsPlugin({
+      exclude: ['@dexpert/storage', '@dexpert/types']
+    })],
     build: {
       outDir: 'out/main',
       lib: {
@@ -14,6 +16,7 @@ export default defineConfig({
     resolve: {
       alias: {
         '@dexpert/types': resolve(__dirname, '../../packages/types/src'),
+        '@dexpert/storage': resolve(__dirname, '../../packages/storage/src'),
       },
     },
   },
@@ -40,6 +43,7 @@ export default defineConfig({
         '@': resolve(__dirname, 'src'),
         '@dexpert/types': resolve(__dirname, '../../packages/types/src'),
         '@dexpert/ui': resolve(__dirname, '../../packages/ui/src'),
+        '@dexpert/storage': resolve(__dirname, '../../packages/storage/src'),
       },
     },
   },

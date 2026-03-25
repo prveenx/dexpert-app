@@ -5,6 +5,9 @@
 import { ipcMain, shell, app, BrowserWindow } from 'electron';
 import { IPC } from './channels';
 import { TokenStore } from '../auth/token-store';
+import { SessionPersistence } from '@dexpert/storage';
+
+const sessionPersistence = new SessionPersistence();
 
 export function registerIpcHandlers(): void {
   // ── Window Controls ────────────────────────────────
@@ -56,5 +59,16 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC.AUTH_CLEAR, () => {
     TokenStore.clear();
     return;
+  });
+
+  // ── Storage ────────────────────────────────────────
+
+  ipcMain.handle(IPC.STORAGE_GET_SESSIONS, async () => {
+    return await sessionPersistence.load();
+  });
+
+  ipcMain.handle(IPC.STORAGE_SET_SESSIONS, async (_event, data: any) => {
+    await sessionPersistence.save(data);
+    return true;
   });
 }

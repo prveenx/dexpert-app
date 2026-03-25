@@ -11,6 +11,7 @@
     "clean": "rimraf out dist"
   },
   "dependencies": {
+    "@dexpert/storage": "workspace:*",
     "@dexpert/types": "workspace:*",
     "@dexpert/ui": "workspace:*",
     "@electron-toolkit/utils": "^4.0.0",

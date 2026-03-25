@@ -45,6 +45,10 @@ const api = {
     version: (): Promise<string> => ipcRenderer.invoke(IPC.APP_VERSION),
     platform: (): Promise<string> => ipcRenderer.invoke(IPC.APP_PLATFORM),
   },
+  storage: {
+    getSessions: (): Promise<any> => ipcRenderer.invoke(IPC.STORAGE_GET_SESSIONS),
+    setSessions: (data: any): Promise<boolean> => ipcRenderer.invoke(IPC.STORAGE_SET_SESSIONS, data),
+  },
 };
 
 contextBridge.exposeInMainWorld('dexpert', api);

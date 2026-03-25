@@ -52,7 +52,7 @@ def verify_token(authorization: str = Header(None)) -> dict:
         settings = get_settings()
         payload = jwt.decode(
             token,
-            settings.auth_secret,
+            settings.better_auth_secret,
             algorithms=["HS256"]
         )
         return payload

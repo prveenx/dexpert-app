@@ -23,6 +23,10 @@ export const IPC = {
   // Shell
   SHELL_OPEN_EXTERNAL: 'shell:open-external',
 
+  // Storage
+  STORAGE_GET_SESSIONS: 'storage:get-sessions',
+  STORAGE_SET_SESSIONS: 'storage:set-sessions',
+
   // App
   APP_VERSION: 'app:version',
   APP_PLATFORM: 'app:platform',

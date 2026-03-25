@@ -1,3 +1,2 @@
-2026/03/23-23:39:22.842 41a0 Reusing MANIFEST C:\Users\user\Desktop\dexpert_desktop\engine\.pcagent_browser_profile\Default\Session Storage/MANIFEST-000001
-2026/03/23-23:39:22.854 41a0 Recovering log #3
-2026/03/23-23:39:22.868 41a0 Reusing old log C:\Users\user\Desktop\dexpert_desktop\engine\.pcagent_browser_profile\Default\Session Storage/000003.log 
+2026/03/24-17:10:02.525 2868 Creating DB C:\Users\user\Desktop\Dexpert\dexpert-app\engine\.pcagent_browser_profile\Default\Session Storage since it was missing.
+2026/03/24-17:10:02.551 2868 Reusing MANIFEST C:\Users\user\Desktop\Dexpert\dexpert-app\engine\.pcagent_browser_profile\Default\Session Storage/MANIFEST-000001

@@ -104,7 +104,7 @@ class BaseAgent(ABC):
         """Determine which API key to use based on the model string."""
         model = self.config.model.lower()
         if "gemini" in model:
-            return self.globals.google_ai_api_key
+            return self.globals.google_api_key
         if "openai" in model or "gpt" in model:
             return self.globals.openai_api_key
         if "anthropic" in model or "claude" in model:
