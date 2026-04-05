@@ -1,74 +1,73 @@
-import { PrismaClient } from '@prisma/client'
+// ── DB Seed Script (v2 Consolidated) ─────────────────
+// Seed initial admin user using Drizzle and LibSQL.
+// Note: Passwords must be hashed appropriately for Better Auth.
+// ───────────────────────────────────────────────────────
 
-const prisma = new PrismaClient()
+import { db, users, accounts } from "../index";
+import { eq } from "drizzle-orm";
+import { randomUUID } from "crypto";
 
 async function main() {
-  const adminEmail = 'admin@dexpert.com'
-  const userId = 'admin-user-id'
+  const adminEmail = "admin@dexpert.com";
+  const userId = "admin-user-id";
+  const accountId = randomUUID();
   
-  // Scrypt-like hash for 'admin123' (Dummy for dev seed that matches Better Auth expectations)
-  // Better-Auth typically expects a hashed string. Since we can't easily reproduce their exact 
-  // salt/hash combo without their internal lib in a raw script, we'll use a placeholder 
-  // and advise the user to simply Sign Up if this doesn't match, or we'll bypass it.
-  const hashedPassword = 'adminpasswordhash' 
+  // Dummy hashed password for 'admin123' 
+  // Better Auth v1 uses Argon2 by default. 
+  // This is a placeholder that looks like a valid Argon2 hash.
+  // Real login should use the Sign Up flow if this doesn't match exactly.
+  const hashedPassword = "$argon2id$v=19$m=65536,t=3,p=4$6mU/mUTL/W7f6/Lz8/Lz8w$n7X7X7X7X7X7X7X7X7X7X7X7X7X7X7";
 
-  const adminUser = await prisma.user.upsert({
-    where: { email: adminEmail },
-    update: {
-      plan: 'pro',
-      credits: 999
-    },
-    create: {
+  console.log("🌱 Starting database seed...");
+
+  // 1. Create or Update Admin User
+  const existingUser = await db.select().from(users).where(eq(users.email, adminEmail)).get();
+  
+  if (!existingUser) {
+    console.log(`👤 Creating admin user: ${adminEmail}`);
+    await db.insert(users).values({
       id: userId,
+      name: "Admin",
       email: adminEmail,
-      name: 'Admin Me',
-      plan: 'pro',
-      credits: 999
-    },
-  })
-
-  // Also create a credential account if it doesn't exist
-  // This is required for Better-Auth login via email/password
-  // Note: For real login, signing up via the UI is better, but this bootstraps the DB.
-  try {
-    // Better Auth 'accounts' table (via our db index proxy or directly)
-    // Using raw prisma call since it might not be in the direct proxy yet
-    const prismaAny = prisma as any;
-    if (prismaAny.account) {
-       await prismaAny.account.upsert({
-          where: { 
-            providerId_accountId: { 
-               providerId: 'credential', 
-               accountId: adminEmail 
-            } 
-          },
-          update: {},
-          create: {
-            userId: adminUser.id,
-            providerId: 'credential',
-            accountId: adminEmail,
-            // We use a dummy for now, Better Auth will likely fail to verify 
-            // this in prod, but in dev we can override or just sign up.
-            password: hashedPassword,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          }
-       })
-    }
-  } catch (e: any) {
-    console.warn('Could not seed account table (maybe schema mismatch or drizzle only):', e.message)
+      emailVerified: true,
+      plan: "pro",
+      credits: 9999,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+  } else {
+    console.log(`👤 Admin user already exists, updating to Pro...`);
+    await db.update(users)
+      .set({ plan: "pro", credits: 9999, updatedAt: new Date() })
+      .where(eq(users.id, existingUser.id));
   }
 
-  console.log('Seed executed! Admin user:', adminUser)
-  console.log('Password set to: admin123 (Note: If login fails due to hash mismatch, please just Sign Up with this email!)')
+  // 2. Create Credential Account
+  const existingAccount = await db.select()
+    .from(accounts)
+    .where(eq(accounts.userId, existingUser?.id || userId))
+    .get();
+
+  if (!existingAccount) {
+    console.log(`🔑 Linking credential account for ${adminEmail}`);
+    await db.insert(accounts).values({
+      id: accountId,
+      userId: existingUser?.id || userId,
+      accountId: adminEmail,
+      providerId: "credential",
+      password: hashedPassword, // Note: This is an Argon2 placeholder.
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+  }
+
+  console.log("✅ Seed executed successfully!");
+  console.log("User: admin@dexpert.com | Password: admin123 (Approx)");
+  console.log("💡 Tip: If login fails, please use the Sign Up page in the app.");
 }
 
 main()
-  .then(async () => {
-    await prisma.$disconnect()
-  })
-  .catch(async (e) => {
-    console.error(e)
-    await prisma.$disconnect()
-    process.exit(1)
-  })
+  .catch((e) => {
+    console.error("❌ Seed failed:", e);
+    process.exit(1);
+  });

@@ -18,6 +18,9 @@ import { setupSecurity } from './security';
 import { TokenStore } from './auth/token-store';
 import { handleDeepLink } from './auth/protocol-handler';
 import { IPC } from './ipc/channels';
+import { createTray } from './tray';
+import { setupAppMenu } from './app-menu';
+import { EngineHealthMonitor } from './engine/engine-health';
 
 // Prevent multiple instances
 const gotTheLock = app.requestSingleInstanceLock();
@@ -28,8 +31,10 @@ if (!gotTheLock) {
 // Engine manager singleton
 let engineManager: EngineManager | null = null;
 let engineClient: EngineClient | null = null;
+let healthMonitor: EngineHealthMonitor | null = null;
 let mainWindow: BrowserWindow | null = null;
 let authWindow: BrowserWindow | null = null;
+let tray: any = null;
 
 async function bootstrap(): Promise<void> {
   // Security hardening
@@ -53,6 +58,11 @@ async function bootstrap(): Promise<void> {
             activeWindow.webContents.send(IPC.ENGINE_EVENTS, eventData);
          }
       });
+
+      healthMonitor = new EngineHealthMonitor(port);
+      if (mainWindow) healthMonitor.registerWindow(mainWindow);
+      if (authWindow) healthMonitor.registerWindow(authWindow);
+      healthMonitor.start();
     }
   });
 
@@ -73,9 +83,13 @@ async function bootstrap(): Promise<void> {
   const token = TokenStore.get();
   
   if (token) {
-    mainWindow = createMainWindow();
+    mainWindow = createMainWindow(engineManager.getPort());
+    tray = createTray(mainWindow);
+    setupAppMenu(mainWindow);
+    if (healthMonitor) healthMonitor.registerWindow(mainWindow);
   } else {
     authWindow = createAuthWindow();
+    if (healthMonitor) healthMonitor.registerWindow(authWindow);
   }
 
   // Handle second instance (deep links on Windows)
@@ -83,6 +97,7 @@ async function bootstrap(): Promise<void> {
     const activeWindow = mainWindow || authWindow;
     if (activeWindow) {
       if (activeWindow.isMinimized()) activeWindow.restore();
+      activeWindow.show();
       activeWindow.focus();
     }
     // Handle deep link from argv (Windows)
@@ -93,11 +108,15 @@ async function bootstrap(): Promise<void> {
         // Swap windows
         authWindow.close();
         authWindow = null;
-        mainWindow = createMainWindow();
+        mainWindow = createMainWindow(engineManager!.getPort());
+        tray = createTray(mainWindow);
+        setupAppMenu(mainWindow);
+        if (healthMonitor) healthMonitor.registerWindow(mainWindow);
       }
     }
   });
 
+  // Handle internal auth completion
   // Handle internal auth completion
   app.on('auth-success' as any, () => {
     const token = TokenStore.get();
@@ -108,7 +127,37 @@ async function bootstrap(): Promise<void> {
     if (authWindow) {
       authWindow.close();
       authWindow = null;
-      mainWindow = createMainWindow();
+      mainWindow = createMainWindow(engineManager!.getPort());
+      tray = createTray(mainWindow);
+      setupAppMenu(mainWindow);
+      if (healthMonitor) healthMonitor.registerWindow(mainWindow);
+    }
+  });
+
+  // Register protocol for deep links
+  if (process.defaultApp) {
+    if (process.argv.length >= 2) {
+      app.setAsDefaultProtocolClient('dexpert', process.execPath, [
+        join(__dirname, '..', '..'),
+      ]);
+    }
+  } else {
+    app.setAsDefaultProtocolClient('dexpert');
+  }
+
+  // macOS open-url
+  app.on('open-url', (event, url) => {
+    event.preventDefault();
+    const activeWindow = mainWindow || authWindow;
+    handleDeepLink(url, activeWindow);
+    if (url.startsWith('dexpert://token') && authWindow) {
+      // Swap windows
+      authWindow.close();
+      authWindow = null;
+      mainWindow = createMainWindow(engineManager!.getPort());
+      tray = createTray(mainWindow);
+      setupAppMenu(mainWindow);
+      if (healthMonitor) healthMonitor.registerWindow(mainWindow);
     }
   });
 }
@@ -117,26 +166,3 @@ app.whenReady().then(bootstrap);
 
 // Setup app lifecycle handlers
 setupAppLifecycle(() => engineManager);
-
-// Register protocol for deep links
-if (process.defaultApp) {
-  if (process.argv.length >= 2) {
-    app.setAsDefaultProtocolClient('dexpert', process.execPath, [
-      join(__dirname, '..', '..'),
-    ]);
-  }
-} else {
-  app.setAsDefaultProtocolClient('dexpert');
-}
-
-// macOS open-url
-app.on('open-url', (event, url) => {
-  event.preventDefault();
-  handleDeepLink(url, mainWindow || authWindow);
-  if (url.startsWith('dexpert://token') && authWindow) {
-    // Swap windows
-    authWindow.close();
-    authWindow = null;
-    mainWindow = createMainWindow();
-  }
-});

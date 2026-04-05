@@ -9,6 +9,7 @@
     "@dexpert/types": "workspace:*"
   },
   "devDependencies": {
+    "@dexpert/config": "workspace:*",
     "typescript": "^5.0.0"
   }
 }

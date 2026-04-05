@@ -35,35 +35,40 @@ export type ClientMessage = TaskMsg | ChatMsg | CancelMsg | PingMsg;
 export interface ThinkingEvent {
   type: 'thinking';
   sessionId: string;
-  agentId: AgentId;
+  agentId: string;
   content: string;
 }
 
 export interface ToolCallEvent {
   type: 'tool_call';
   sessionId: string;
-  agentId: AgentId;
-  toolCall: ToolCall;
+  agentId: string;
+  toolName: string;
+  args: Record<string, unknown>;
+  callId?: string;
 }
 
 export interface ToolResultEvent {
   type: 'tool_result';
   sessionId: string;
-  agentId: AgentId;
-  result: ToolResult;
+  agentId: string;
+  toolName: string;
+  result: string;
+  success: boolean;
+  callId?: string;
 }
 
 export interface ResponseEvent {
   type: 'response';
   sessionId: string;
-  agentId: AgentId;
+  agentId: string;
   content: string;
   isStreaming: boolean;
 }
 
 export interface AgentStatusEvent {
   type: 'agent_status';
-  agentId: AgentId;
+  agentId: string;
   status: AgentStatus;
   action?: string;
 }
@@ -90,7 +95,7 @@ export interface PongEvent {
 export interface TokenUsageEvent {
   type: 'token_usage';
   sessionId: string;
-  agentId: AgentId;
+  agentId: string;
   provider: string;
   inputTokens: number;
   outputTokens: number;
@@ -100,9 +105,64 @@ export interface TokenUsageEvent {
 export interface ScreenshotEvent {
   type: 'screenshot';
   sessionId: string;
-  data: string; // base64 JPEG
+  data: string;
   width: number;
   height: number;
+}
+
+// ── Workspace Events (New — v2) ──────────────────────
+
+export interface FileCreatedEvent {
+  type: 'file_created';
+  sessionId: string;
+  agentId: string;
+  filePath: string;
+  content: string;
+  language: string;
+}
+
+export interface FileModifiedEvent {
+  type: 'file_modified';
+  sessionId: string;
+  agentId: string;
+  filePath: string;
+  diff: string;
+  newContent: string;
+}
+
+export interface TerminalOutputEvent {
+  type: 'terminal_output';
+  sessionId: string;
+  agentId: string;
+  command: string;
+  output: string;
+  exitCode?: number;
+  isError: boolean;
+}
+
+export interface WorkspaceUpdateEvent {
+  type: 'workspace_update';
+  sessionId: string;
+  agentId: string;
+  rootPath: string;
+  fileTree: WorkspaceFileNode[];
+}
+
+export interface WorkspaceFileNode {
+  name: string;
+  path: string;
+  type: 'file' | 'directory';
+  language?: string;
+  status?: 'new' | 'modified' | 'deleted';
+  children?: WorkspaceFileNode[];
+}
+
+export interface AgentHandoffEvent {
+  type: 'agent_handoff';
+  sessionId: string;
+  fromAgent: string;
+  toAgent: string;
+  taskSummary: string;
 }
 
 export type EngineEvent =
@@ -115,4 +175,9 @@ export type EngineEvent =
   | ErrorEvent
   | PongEvent
   | TokenUsageEvent
-  | ScreenshotEvent;
+  | ScreenshotEvent
+  | FileCreatedEvent
+  | FileModifiedEvent
+  | TerminalOutputEvent
+  | WorkspaceUpdateEvent
+  | AgentHandoffEvent;

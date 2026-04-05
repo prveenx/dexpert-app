@@ -234,22 +234,30 @@ class PlannerAgent(BaseAgent):
 
             # 3. Handle Decision & Delegate
             if result.type == MessageType.CHAT:
-                # Direct response
-                response_text = str(result.content)
+                # Direct response — True Streaming
+                content = str(result.content)
+                full_response = ""
                 
-                # Stream it out in chunks for "real-time" feel if it was a single LLM call
-                chunk_size = 30
-                for i in range(0, len(response_text), chunk_size):
-                    chunk = response_text[i:i + chunk_size]
+                # We use the content from result as a base, but for true streaming, 
+                # we call LLM stream again to give that "typewriter" feel or just 
+                # use the provided content if it was already generated.
+                # Since 'process' currently returns a full non-streamed response, 
+                # let's refactor it to return a stream if possible, or just stream the existing content.
+                
+                # Streaming existing content in small bursts for UI responsiveness
+                chunk_size = 50
+                for i in range(0, len(content), chunk_size):
+                    chunk = content[i:i + chunk_size]
+                    full_response += chunk
                     yield self.emit_response(
                         content=chunk,
                         is_streaming=True,
                         session_id=session_id,
                     )
-                    await asyncio.sleep(0.01) # Smoothness
-                
+                    await asyncio.sleep(0.005) # Extreme low latency smoothness
+
                 yield self.emit_response(
-                    content=str(result.content),
+                    content=full_response,
                     is_streaming=False,
                     session_id=session_id,
                 )
@@ -259,8 +267,10 @@ class PlannerAgent(BaseAgent):
                 task_frame: TaskFrame = result.content
                 target = result.receiver
                 
-                yield self.emit_thinking(
-                    content=f"Delegating task to {target.value.upper()} agent: {task_frame.goal}",
+                # Emit sleek Handoff event for UI transition
+                yield self.emit_handoff(
+                    to_agent=target.value.lower(),
+                    task_summary=task_frame.goal,
                     session_id=session_id
                 )
 
@@ -275,72 +285,40 @@ class PlannerAgent(BaseAgent):
                     agent = OSAgent(session_id=current_session)
                 
                 if agent:
-                    # Pipe events from the sub-agent back to our stream
+                    # Pipe events from sub-agent
                     event_queue = asyncio.Queue()
                     
-                    async def event_handler(event_type: str, content: str):
-                        await event_queue.put((event_type, content))
+                    async def event_handler(event_type: str, content: Any):
+                        await event_queue.put(content)
                     
                     agent.set_event_handler(event_handler)
                     
                     # Run agent process in background
-                    task = asyncio.create_task(agent.process(result))
+                    task = asyncio.create_task(agent.execute(task_frame))
                     
-                    # While the agent is working, yield its thinking/actions
+                    # Yield events as they come from sub-agent
                     while not task.done() or not event_queue.empty():
                         try:
-                            # Wait for event with timeout to check task status
-                            etype, econ = await asyncio.wait_for(event_queue.get(), timeout=0.1)
-                            
-                            if etype == "THINK":
-                                yield self.emit_thinking(econ, session_id=session_id)
-                            elif etype in ("ACTION", "TOOL_OUTPUT"):
-                                yield self.emit_thinking(f"🔧 {econ}", session_id=session_id)
-                            elif etype == "ERROR":
-                                yield self.emit_thinking(f"❌ {econ}", session_id=session_id)
+                            # Forward events directly (they are already Event objects)
+                            event = await asyncio.wait_for(event_queue.get(), timeout=0.1)
+                            yield event
                         except (asyncio.TimeoutError, asyncio.QueueEmpty):
                             continue
 
-                    agent_result = await task
-                    content_to_show = agent_result.content
-                    
-                    # Foolproof extraction of human content from frames/objects
-                    if hasattr(content_to_show, "summary"):
-                        content_to_show = content_to_show.summary
-                    elif hasattr(content_to_show, "question"):
-                        content_to_show = content_to_show.question
-                    elif isinstance(content_to_show, dict):
-                        content_to_show = content_to_show.get("summary", 
-                                          content_to_show.get("question", 
-                                          str(content_to_show)))
-                    
-                    final_content = str(content_to_show)
-                    
-                    yield self.emit_response(
-                        content=final_content,
-                        is_streaming=False,
-                        session_id=session_id
-                    )
-                    
-                    # Record the final interaction
-                    await self.state_manager.add_interaction("assistant", final_content)
+                    agent_result_list = await task
+                    # Note: agent.execute yields events, so the result is just the final state
+                    # The UI already received all intermediate responses.
 
             elif result.type == MessageType.QUESTION:
                 # Escalation
-                content_to_show = result.content
-                if hasattr(content_to_show, "question"):
-                    content_to_show = content_to_show.question
-                elif isinstance(content_to_show, dict):
-                    content_to_show = content_to_show.get("question", str(content_to_show))
-                
                 yield self.emit_response(
-                    content=str(content_to_show),
+                    content=str(result.content.get("question", result.content)),
                     is_streaming=False,
                     session_id=session_id
                 )
 
-            # Record final interactions for CHAT
-            if result.type == MessageType.CHAT:
+            # Record final interaction
+            if result.type != MessageType.TASK:
                 await self.state_manager.add_interaction("assistant", str(result.content))
 
         except Exception as e:

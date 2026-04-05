@@ -14,7 +14,10 @@ interface SessionStoreActions {
   setSessions: (sessions: Session[]) => void;
   setActive: (sessionId: string) => void;
   addMessage: (message: ConversationTurn) => void;
-  updateMessage: (id: string, content: string | ((prev: string) => string)) => void;
+  updateMessage: (
+    id: string,
+    updates: Partial<ConversationTurn> | ((prev: ConversationTurn) => Partial<ConversationTurn>)
+  ) => void;
   clearMessages: () => void;
   renameSession: (id: string, title: string) => void;
   deleteSession: (id: string) => void;
@@ -34,11 +37,11 @@ export const useSessionStore = create<SessionStoreState & SessionStoreActions>()
       addMessage: (message) => set((state) => ({
         messages: [...state.messages, message],
       })),
-      updateMessage: (id, content) => set((state) => ({
+      updateMessage: (id, updates) => set((state) => ({
         messages: state.messages.map((m) => {
           if (m.id !== id) return m;
-          const newContent = typeof content === 'function' ? content(m.content) : content;
-          return { ...m, content: newContent };
+          const u = typeof updates === 'function' ? updates(m) : updates;
+          return { ...m, ...u };
         }),
       })),
       clearMessages: () => set({ messages: [] }),

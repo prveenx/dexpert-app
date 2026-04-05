@@ -13,7 +13,7 @@ export function handleDeepLink(url: string, window: BrowserWindow | null) {
         // Notify the window
         if (window && !window.isDestroyed()) {
           window.webContents.send('auth:success');
-          // if it's the auth window, we can send an IPC to close it or the main process manages it
+          app.emit('auth-success' as any);
         }
       }
     }

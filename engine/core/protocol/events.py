@@ -6,7 +6,7 @@ These are the JSON payloads the engine sends TO the renderer via WebSocket.
 """
 
 from __future__ import annotations
-from typing import Optional, Any, Dict, Union
+from typing import Optional, Any, Dict, List, Union
 from pydantic import BaseModel
 
 
@@ -115,6 +115,67 @@ class SystemNoticeEvent(BaseModel):
     content: str
 
 
+# ── Workspace Events (v2) ──────────────────────────────
+
+class FileCreatedEvent(BaseModel):
+    """Emitted when an agent creates a new file."""
+    type: str = "file_created"
+    sessionId: str
+    agentId: str
+    filePath: str
+    content: str
+    language: str = "text"
+
+
+class FileModifiedEvent(BaseModel):
+    """Emitted when an agent modifies an existing file."""
+    type: str = "file_modified"
+    sessionId: str
+    agentId: str
+    filePath: str
+    diff: str  # unified diff format
+    newContent: str = ""
+
+
+class TerminalOutputEvent(BaseModel):
+    """Emitted when an agent executes a terminal command."""
+    type: str = "terminal_output"
+    sessionId: str
+    agentId: str
+    command: str
+    output: str
+    exitCode: Optional[int] = None
+    isError: bool = False
+
+
+class WorkspaceFileNode(BaseModel):
+    """A file or directory node in the workspace tree."""
+    name: str
+    path: str
+    type: str  # "file" | "directory"
+    language: Optional[str] = None
+    status: Optional[str] = None  # "new" | "modified" | "deleted"
+    children: Optional[List["WorkspaceFileNode"]] = None
+
+
+class WorkspaceUpdateEvent(BaseModel):
+    """Full workspace file tree update."""
+    type: str = "workspace_update"
+    sessionId: str
+    agentId: str
+    rootPath: str
+    fileTree: List[WorkspaceFileNode] = []
+
+
+class AgentHandoffEvent(BaseModel):
+    """Emitted when one agent delegates work to another."""
+    type: str = "agent_handoff"
+    sessionId: str
+    fromAgent: str
+    toAgent: str
+    taskSummary: str
+
+
 # Union type for all engine events
 EngineEvent = Union[
     ThinkingEvent,
@@ -129,4 +190,9 @@ EngineEvent = Union[
     QuestionEvent,
     ScreenshotEvent,
     SystemNoticeEvent,
+    FileCreatedEvent,
+    FileModifiedEvent,
+    TerminalOutputEvent,
+    WorkspaceUpdateEvent,
+    AgentHandoffEvent,
 ]

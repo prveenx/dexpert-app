@@ -12,6 +12,7 @@ interface ToolCallBlockProps {
   result?: string;
   isRunning?: boolean;
   success?: boolean;
+  callId?: string;
 }
 
 export const ToolCallBlock: React.FC<ToolCallBlockProps> = ({

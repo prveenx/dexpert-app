@@ -144,19 +144,42 @@ def reload_settings() -> DexpertSettings:
 
 def resolve_model(local_model: str) -> str:
     """
-    Resolve which model to use, respecting global override.
-    Priority:
-      1. Global override (DexpertSettings.global_model_override)
-      2. Agent's local model setting
+    Resolve which model to use, respecting global override and mapping aliases.
     """
     settings = get_settings()
-    if settings.global_model_override:
-        return str(settings.global_model_override)
     
-    # Ensure the model string has a provider prefix for LiteLLM
-    if "/" not in local_model:
-        return f"gemini/{local_model}"
-    return local_model
+    # Priority 1: Global override
+    if settings.global_model_override:
+        model = str(settings.global_model_override)
+    else:
+        model = local_model
+
+    # Mapping common aliases to LiteLLM format
+    model = model.lower()
+    
+    # ── Google Gemini ─────────────────────────────────────
+    if "gemini-1.5-pro" in model: return "gemini/gemini-1.5-pro-latest"
+    if "gemini-2.0-flash" in model: return "gemini/gemini-2.0-flash-exp"
+    if "gemini-1.5-flash-8b" in model: return "gemini/gemini-1.5-flash-8b-latest"
+    if "gemini-1.5-flash" in model: return "gemini/gemini-1.5-flash-latest"
+
+    # ── OpenAI GPT ────────────────────────────────────────
+    if "gpt-4o-mini" in model: return "openai/gpt-4o-mini"
+    if "gpt-4o" in model: return "openai/gpt-4o"
+    if "o1" in model: return "openai/o1-preview"
+
+    # ── Anthropic Claude ──────────────────────────────────
+    if "claude-3-5-sonnet" in model: return "anthropic/claude-3-5-sonnet-20241022"
+    if "claude-3-5-haiku" in model: return "anthropic/claude-3-5-haiku-20241022"
+    if "claude-3-opus" in model: return "anthropic/claude-3-opus-20240229"
+
+    # ── Fallback ──────────────────────────────────────────
+    if "/" not in model:
+        if "gpt" in model: return f"openai/{model}"
+        if "claude" in model: return f"anthropic/{model}"
+        return f"gemini/{model}"
+        
+    return model
 
 def resolve_vision_model(
     local_main_model: str,

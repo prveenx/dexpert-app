@@ -202,6 +202,50 @@ class BaseAgent(ABC):
             action=action,
         )
 
+    def emit_file_created(self, file_path: str, content: str, language: str = "text", session_id: str = "default") -> Any:
+        """Create a file created event."""
+        from core.protocol.events import FileCreatedEvent
+        return FileCreatedEvent(
+            sessionId=session_id,
+            agentId=self.agent_id,
+            filePath=file_path,
+            content=content,
+            language=language
+        )
+
+    def emit_file_modified(self, file_path: str, diff: str, new_content: str = "", session_id: str = "default") -> Any:
+        """Create a file modified event."""
+        from core.protocol.events import FileModifiedEvent
+        return FileModifiedEvent(
+            sessionId=session_id,
+            agentId=self.agent_id,
+            filePath=file_path,
+            diff=diff,
+            newContent=new_content
+        )
+
+    def emit_terminal_output(self, command: str, output: str, exit_code: Optional[int] = None, is_error: bool = False, session_id: str = "default") -> Any:
+        """Create a terminal output event."""
+        from core.protocol.events import TerminalOutputEvent
+        return TerminalOutputEvent(
+            sessionId=session_id,
+            agentId=self.agent_id,
+            command=command,
+            output=output,
+            exitCode=exit_code,
+            isError=is_error
+        )
+
+    def emit_handoff(self, to_agent: str, task_summary: str, session_id: str = "default") -> Any:
+        """Create an agent handoff event."""
+        from core.protocol.events import AgentHandoffEvent
+        return AgentHandoffEvent(
+            sessionId=session_id,
+            fromAgent=self.agent_id,
+            toAgent=to_agent,
+            taskSummary=task_summary
+        )
+
     # ── Streaming Chat (for WebSocket handler) ───────────
 
     async def stream_chat(

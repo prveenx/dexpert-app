@@ -45,14 +45,7 @@ def create_app() -> FastAPI:
     # CORS — allow local Electron and dev server connections
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[
-            "http://localhost:5173",       # Vite dev server
-            "http://localhost:3000",        # Next.js dev server
-            "http://127.0.0.1:5173",
-            "http://127.0.0.1:3000",
-            f"http://127.0.0.1:{app_settings.engine_port}",
-            "app://.",                      # Electron production
-        ],
+        allow_origins=["*"],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

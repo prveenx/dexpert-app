@@ -380,12 +380,38 @@ class OSAgent(BaseAgent):
                             # Execute the tool
                             output = await self.registry.execute(tool, params)
 
-                            display_output = output[:500] + ("..." if len(output) > 500 else "")
-                            is_error = output.startswith("Error")
-                            if is_error:
-                                await self.emit("ERROR", f"{tool}: {display_output}")
+                            # ── v2: Enhanced Event Emission ──
+                            is_error = "error" in output.lower() or output.startswith("Exception")
+                            sid = self._session_id or "default"
+
+                            if tool == "execute_script":
+                                await self.emit("TERMINAL", self.emit_terminal_output(
+                                    command=params.get("script", "unknown"),
+                                    output=output,
+                                    is_error=is_error,
+                                    session_id=sid
+                                ))
+                            elif tool == "write_file":
+                                await self.emit("FILE_CREATED", self.emit_file_created(
+                                    file_path=params.get("file_path", "unknown"),
+                                    content=params.get("content", ""),
+                                    language=params.get("language", "text"),
+                                    session_id=sid
+                                ))
+                            elif tool == "edit_file":
+                                await self.emit("FILE_MODIFIED", self.emit_file_modified(
+                                    file_path=params.get("file_path", "unknown"),
+                                    diff=output if "diff" in output.lower() else "Surgical edit applied.",
+                                    new_content="", # Would need to read file again to get full content
+                                    session_id=sid
+                                ))
                             else:
-                                await self.emit("TOOL_OUTPUT", f"{tool} → {display_output}")
+                                # Fallback for other tools
+                                display_output = output[:500] + ("..." if len(output) > 500 else "")
+                                if is_error:
+                                    await self.emit("ERROR", f"{tool}: {display_output}")
+                                else:
+                                    await self.emit("TOOL_OUTPUT", f"{tool} → {display_output}")
 
                             self._context_mgr.add("user", f"TOOL RESULT ({tool}):\n{output}")
 
